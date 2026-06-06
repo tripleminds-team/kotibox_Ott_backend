@@ -22,26 +22,12 @@ const saveFileStream = (part: any, folder: string): Promise<string> => {
   });
 };
 
-const deleteOldFile = (filePath: string) => {
-  if (filePath && filePath.startsWith('/uploads/')) {
-    const fullPath = path.join(__dirname, '../..', filePath);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-  }
-};
-
 export const listLanguages = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const query = request.query as { page?: string; limit?: string };
-    const page = parseInt(query.page || '1');
-    const limit = parseInt(query.limit || '10');
-    const skip = (page - 1) * limit;
+    const query = request.query as { includeSkip?: string };
+    const includeSkip = query.includeSkip === 'true';
 
-    const [languages, total] = await Promise.all([
-      LanguageModel.find({}).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit).lean(),
-      LanguageModel.countDocuments({})
-    ]);
+    const languages = await LanguageModel.find({ isActive: true }).sort({ order: 1, createdAt: -1 }).lean();
 
     const filteredLanguages = languages.map(lang => ({
       id: lang._id.toString(),
@@ -54,15 +40,26 @@ export const listLanguages = async (request: FastifyRequest, reply: FastifyReply
       updatedAt: lang.updatedAt
     }));
 
+    const data = includeSkip
+      ? [
+          {
+            id: 'skip',
+            name: 'Skip',
+            code: 'skip',
+            image: null,
+            isActive: true,
+            order: -1,
+            createdAt: null,
+            updatedAt: null,
+            isSkippable: true,
+          },
+          ...filteredLanguages,
+        ]
+      : filteredLanguages;
+
     return {
       success: true,
-      data: filteredLanguages,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      data
     };
   } catch (error: any) {
     console.error('Error in listLanguages:', error);

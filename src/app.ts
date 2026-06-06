@@ -34,11 +34,10 @@ fastify.register(fastifyJwt, {
 });
 
 // Register Multipart for file uploads with optimized config
-fastify.register(fastifyMultipart, {
+fastify.register(fastifyMultipart as any, {
   limits: {
     fileSize: 2000 * 1024 * 1024, // 2GB
-    files: 10, // Max files per request
-    parts: 1000 // Max parts per request
+    files: 10 // Max files per request
   }
 });
 

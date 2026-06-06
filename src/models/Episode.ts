@@ -7,6 +7,9 @@ export interface IEpisode extends Document {
   title: string;
   description?: string;
   thumbnail?: string;
+  sourceVideoUrl?: string;
+  sourceStartSeconds?: number;
+  sourceEndSeconds?: number;
   hlsUrl?: string;
   trailerUrl?: string;
   duration?: number;
@@ -16,6 +19,9 @@ export interface IEpisode extends Document {
   audioLanguages: string[];
   airDate?: Date;
   isFree: boolean;
+  isLocked: boolean;
+  processingStatus: 'queued' | 'processing' | 'ready' | 'failed';
+  processingError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +34,9 @@ const EpisodeSchema = new Schema<IEpisode>(
     title: { type: String, required: true },
     description: String,
     thumbnail: String,
+    sourceVideoUrl: String,
+    sourceStartSeconds: Number,
+    sourceEndSeconds: Number,
     hlsUrl: String,
     trailerUrl: String,
     duration: Number,
@@ -37,6 +46,14 @@ const EpisodeSchema = new Schema<IEpisode>(
     audioLanguages: { type: [String], default: [] },
     airDate: Date,
     isFree: { type: Boolean, default: false },
+    isLocked: { type: Boolean, default: true, index: true },
+    processingStatus: {
+      type: String,
+      enum: ['queued', 'processing', 'ready', 'failed'],
+      default: 'queued',
+      index: true,
+    },
+    processingError: String,
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

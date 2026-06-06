@@ -26,6 +26,7 @@ export interface IUser extends Document {
     lastSeen: Date;
   }>;
   preferredLanguage?: string;
+  languageSelectionSkipped: boolean;
   preferredRegion?: string;
   watchlistCount: number;
   totalWatchTime: number;
@@ -76,6 +77,7 @@ const UserSchema = new Schema<IUser>(
       },
     ],
     preferredLanguage: { type: String, default: 'English' },
+    languageSelectionSkipped: { type: Boolean, default: false },
     preferredRegion: String,
     watchlistCount: { type: Number, default: 0 },
     totalWatchTime: { type: Number, default: 0 },
