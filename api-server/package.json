@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-   "engines": {
+  "engines": {
     "node": "20.x"
   },
   "scripts": {
@@ -11,7 +11,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "seed": "tsx src/seed-run.ts",
+    "seed": "tsx src/seed-run.ts"
   },
   "dependencies": {
     "@fastify/compress": "^7.0.3",
