@@ -1,3 +1,4 @@
+
 # Logs
 logs
 *.log
@@ -45,3 +46,13 @@ api-server/uploads
 .cache
 .parcel-cache
 .turbo
+
+node_modules/
+.env
+.env.*
+!.env.example
+uploads/
+dist/
+.DS_Store
+*.log
+
