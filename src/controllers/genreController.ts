@@ -4,19 +4,22 @@ import uploadHandler from '../lib/uploadHandler';
 
 const readGenreMultipart = async (request: FastifyRequest): Promise<any> => {
   const data: any = {};
+  console.log('readGenreMultipart: Starting to read parts');
 
   for await (const part of request.parts()) {
+    console.log('readGenreMultipart: Got part:', part.type, part.fieldname, part.type === 'field' ? part.value : 'file');
     if (part.type === 'field') {
       if (part.fieldname === 'name') data.name = part.value as string;
       if (part.fieldname === 'description') data.description = part.value as string;
       if (part.fieldname === 'active') data.active = part.value === 'true';
     } else if (part.type === 'file') {
       if (part.fieldname === 'imageFile') {
-        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'IMAGE');
+        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'GENRE');
         data.image = uploadedFile.filePath;
       }
     }
   }
+  console.log('readGenreMultipart returning data:', data);
 
   return data;
 };

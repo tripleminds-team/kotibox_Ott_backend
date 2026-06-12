@@ -14,7 +14,7 @@ const readActorMultipart = async (request: FastifyRequest) => {
       if (part.fieldname === 'birthPlace') data.birthPlace = part.value;
       if (part.fieldname === 'status') data.status = part.value === 'true';
     } else if (part.type === 'file' && part.fieldname === 'imageFile') {
-      const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'IMAGE');
+      const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'ACTOR');
       data.image = uploadedFile.filePath;
     }
   }

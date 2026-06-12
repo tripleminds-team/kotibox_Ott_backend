@@ -14,7 +14,7 @@ export const UPLOAD_TYPES = {
   IMAGE: {
     name: 'image',
     allowedExts: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'],
-    defaultDir: 'images'
+    defaultDir: ''
   },
   VIDEO: {
     name: 'video',
@@ -40,6 +40,26 @@ export const UPLOAD_TYPES = {
     name: 'category-icon',
     allowedExts: ['.jpg', '.jpeg', '.png', '.webp', '.svg'],
     defaultDir: 'categories'
+  },
+  GENRE: {
+    name: 'genre',
+    allowedExts: ['.jpg', '.jpeg', '.png', '.webp'],
+    defaultDir: 'genres'
+  },
+  ACTOR: {
+    name: 'actor',
+    allowedExts: ['.jpg', '.jpeg', '.png', '.webp'],
+    defaultDir: 'actors'
+  },
+  DIRECTOR: {
+    name: 'director',
+    allowedExts: ['.jpg', '.jpeg', '.png', '.webp'],
+    defaultDir: 'directors'
+  },
+  LANGUAGE: {
+    name: 'language',
+    allowedExts: ['.jpg', '.jpeg', '.png', '.webp', '.svg'],
+    defaultDir: 'languages'
   },
   MEDIA_LIBRARY: {
     name: 'media-library',

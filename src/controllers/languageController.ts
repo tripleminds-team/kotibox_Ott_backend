@@ -1,26 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { LanguageModel } from '../models/Language';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const saveFileStream = (part: any, folder: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const uploadDir = path.join(__dirname, '../../uploads', folder);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    const uniqueName = `${Date.now()}-${(part.filename || 'file').replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const filePath = path.join(uploadDir, uniqueName);
-    const writeStream = fs.createWriteStream(filePath);
-    part.file.pipe(writeStream);
-    writeStream.on('finish', () => resolve(`/uploads/${folder}/${uniqueName}`));
-    writeStream.on('error', reject);
-  });
-};
+import uploadHandler from '../lib/uploadHandler';
 
 export const listLanguages = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -111,7 +91,8 @@ export const createLanguage = async (request: FastifyRequest, reply: FastifyRepl
         if (part.fieldname === 'name') name = part.value as string;
         if (part.fieldname === 'code') code = part.value as string;
       } else if (part.type === 'file') {
-        imagePath = await saveFileStream(part, 'languages');
+        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'LANGUAGE');
+        imagePath = uploadedFile.filePath;
       }
     }
 
@@ -167,14 +148,12 @@ export const updateLanguage = async (request: FastifyRequest, reply: FastifyRepl
         if (part.fieldname === 'isActive') updateData.isActive = part.value === 'true';
         if (part.fieldname === 'order') updateData.order = parseInt(part.value as string);
       } else if (part.type === 'file') {
-        updateData.image = await saveFileStream(part, 'languages');
+        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'LANGUAGE');
+        updateData.image = uploadedFile.filePath;
         
         // Delete old image if it exists
-        if (oldImage && oldImage.startsWith('/uploads/')) {
-          const oldPath = path.join(__dirname, '../..', oldImage);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+        if (oldImage) {
+          uploadHandler.deleteUploadedFile(oldImage);
         }
       }
     }
@@ -216,11 +195,8 @@ export const deleteLanguage = async (request: FastifyRequest, reply: FastifyRepl
     }
 
     // Delete image file if it exists
-    if (language.image && language.image.startsWith('/uploads/')) {
-      const imagePath = path.join(__dirname, '../..', language.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
+    if (language.image) {
+      uploadHandler.deleteUploadedFile(language.image);
     }
 
     await LanguageModel.findByIdAndDelete(id);
