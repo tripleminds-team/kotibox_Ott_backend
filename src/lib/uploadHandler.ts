@@ -83,8 +83,8 @@ export type UploadType = keyof typeof UPLOAD_TYPES;
 export interface UploadedFileInfo {
   originalName: string;
   fileName: string;
-  filePath: string; // relative path from uploads root, e.g. /categories/xxx.jpg
-  url: string; // full URL, e.g. http://localhost:3000/categories/xxx.jpg
+  filePath: string; // path with /uploads/ prefix, e.g. /uploads/categories/xxx.jpg
+  url: string; // full URL, e.g. http://localhost:3000/uploads/categories/xxx.jpg
   fileSize: number; // in bytes
   mimeType: string;
   uploadType: UploadType;
@@ -158,8 +158,8 @@ export const saveFileFromPart = async (
       resolve({
         originalName: part.filename,
         fileName,
-        filePath: `/${relativeFilePath.replace(/\\/g, '/')}`, // Normalize to forward slashes
-        url: `${baseUrl}/${relativeFilePath.replace(/\\/g, '/')}`,
+        filePath: `/uploads/${relativeFilePath.replace(/\\/g, '/')}`,
+        url: `${baseUrl}/uploads/${relativeFilePath.replace(/\\/g, '/')}`,
         fileSize: stats.size,
         mimeType: part.mimetype || 'application/octet-stream',
         uploadType
@@ -174,7 +174,7 @@ export const saveFileFromPart = async (
 export const deleteUploadedFile = (relativeFilePath: string) => {
   if (!relativeFilePath) return;
   
-  const fullPath = path.join(UPLOADS_ROOT, relativeFilePath.replace(/^\/+/, ''));
+  const fullPath = path.join(UPLOADS_ROOT, relativeFilePath.replace(/^\/*uploads\//, '').replace(/^\/+/, ''));
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
   }
