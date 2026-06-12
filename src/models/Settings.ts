@@ -16,6 +16,7 @@ export interface ISettings extends Document {
   darkLogoUrl: string;
   lightLogoUrl: string;
   faviconUrl: string;
+  logoStyle: 'icon' | 'fill';
   loginTitle: string;
   loginSubtitle: string;
   loginButtonText: string;
@@ -119,6 +120,7 @@ const SettingsSchema = new Schema<ISettings>(
     darkLogoUrl: { type: String, default: '' },
     lightLogoUrl: { type: String, default: '' },
     faviconUrl: { type: String, default: '' },
+    logoStyle: { type: String, enum: ['icon', 'fill'], default: 'icon' },
     loginTitle: { type: String, default: 'Welcome Back' },
     loginSubtitle: { type: String, default: 'Admin Console' },
     loginButtonText: { type: String, default: 'Sign In' },

@@ -20,6 +20,7 @@ import categoriesRoutes from './categories';
 import notificationTemplatesRoutes from './notificationTemplates';
 import mediaRoutes from './media';
 import appSettingsRoutes from './appSettings';
+import dashboardRoutes from './dashboard';
 
 const router: FastifyPluginAsync = async (fastify) => {
   fastify.register(healthRoutes);
@@ -43,6 +44,7 @@ const router: FastifyPluginAsync = async (fastify) => {
   fastify.register(notificationTemplatesRoutes, { prefix: '/notification-templates' });
   fastify.register(mediaRoutes, { prefix: '/media' });
   fastify.register(appSettingsRoutes, { prefix: '/app-settings' });
+  fastify.register(dashboardRoutes);
 };
 
 export default router;

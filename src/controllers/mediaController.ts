@@ -129,6 +129,15 @@ export const deleteFolder = async (request: FastifyRequest, reply: FastifyReply)
   }
 };
 
+// Helper to ensure file path has /uploads/ prefix
+const ensureUploadPath = (path: string): string => {
+  if (!path) return path;
+  if (path.startsWith('/uploads/')) return path;
+  if (path.startsWith('uploads/')) return `/${path}`;
+  if (path.startsWith('/')) return `/uploads${path}`;
+  return `/uploads/${path}`;
+};
+
 // Get files by folder
 export const getFilesByFolder = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -143,16 +152,26 @@ export const getFilesByFolder = async (request: FastifyRequest, reply: FastifyRe
     }
 
     const files = await MediaFileModel.find({ folder: id }).sort({ createdAt: -1 }).lean();
-    const filesWithSize = files.map((file) => ({
-      _id: file._id,
-      id: file._id.toString(),
-      name: file.name,
-      url: file.url,
-      filePath: file.filePath,
-      size: uploadHandler.formatFileSize(file.fileSize),
-      fileSize: file.fileSize,
-      folder: id,
-    }));
+    const filesWithSize = files.map((file) => {
+      const normalizedPath = ensureUploadPath(file.filePath);
+      const protocol = request.protocol;
+      const host = request.headers.host;
+      const normalizedUrl = `${protocol}://${host}${normalizedPath}`;
+      return {
+        _id: file._id,
+        id: file._id.toString(),
+        name: file.name,
+        url: normalizedUrl,
+        filePath: normalizedPath,
+        size: uploadHandler.formatFileSize(file.fileSize),
+        fileSize: file.fileSize,
+        fileType: file.fileType,
+        folder: id,
+        source: file.source,
+        sourceId: file.sourceId?.toString(),
+        storageType: file.storageType,
+      };
+    });
 
     return reply.send({
       success: true,
@@ -164,10 +183,79 @@ export const getFilesByFolder = async (request: FastifyRequest, reply: FastifyRe
   }
 };
 
+// Get all media files (with optional filtering)
+export const getAllMediaFiles = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const query = request.query as {
+      page?: string;
+      limit?: string;
+      source?: string;
+      fileType?: string;
+      search?: string;
+    };
+
+    const page = Math.max(1, Number(query.page || 1));
+    const limit = Math.min(100, Math.max(1, Number(query.limit || 50)));
+    const skip = (page - 1) * limit;
+
+    // Build filter
+    const filter: any = {};
+    if (query.source) filter.source = query.source;
+    if (query.fileType) filter.fileType = new RegExp(query.fileType, 'i');
+    if (query.search) filter.name = new RegExp(query.search, 'i');
+
+    const [files, total] = await Promise.all([
+      MediaFileModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      MediaFileModel.countDocuments(filter)
+    ]);
+
+    const filesWithSize = files.map((file) => {
+      const normalizedPath = ensureUploadPath(file.filePath);
+      const protocol = request.protocol;
+      const host = request.headers.host;
+      const normalizedUrl = `${protocol}://${host}${normalizedPath}`;
+      return {
+        _id: file._id,
+        id: file._id.toString(),
+        name: file.name,
+        url: normalizedUrl,
+        filePath: normalizedPath,
+        size: uploadHandler.formatFileSize(file.fileSize),
+        fileSize: file.fileSize,
+        fileType: file.fileType,
+        folder: file.folder?.toString(),
+        source: file.source,
+        sourceId: file.sourceId?.toString(),
+        storageType: file.storageType,
+        createdAt: file.createdAt,
+      };
+    });
+
+    return reply.send({
+      success: true,
+      data: filesWithSize,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    logger.error({ error }, 'Error getting all media files');
+    return reply.status(500).send({ success: false, error: error.message });
+  }
+};
+
 // Upload file to folder
 export const uploadFilesToFolder = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const { id } = request.params as { id: string };
+    
     if (!Types.ObjectId.isValid(id)) {
       return reply.status(400).send({ success: false, error: 'Invalid folder ID' });
     }
@@ -179,19 +267,20 @@ export const uploadFilesToFolder = async (request: FastifyRequest, reply: Fastif
 
     const savedFiles = [];
     const customDir = `media/${id}`;
+    let source = 'media-library';
 
-    for await (const part of request.parts()) {
+    const parts = request.parts();
+    for await (const part of parts) {
       if (part.type === 'file' && part.fieldname === 'file') {
-        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'MEDIA_LIBRARY', customDir);
-        const mediaFile = await MediaFileModel.create({
-          name: uploadedFile.originalName,
-          url: uploadedFile.url,
-          filePath: uploadedFile.filePath,
-          fileSize: uploadedFile.fileSize,
-          fileType: uploadedFile.mimeType,
-          folder: new Types.ObjectId(id),
+        const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'MEDIA_LIBRARY', customDir, {
+          trackInMediaLibrary: true,
+          source: source,
+          folderId: id,
         });
-        savedFiles.push(mediaFile);
+        savedFiles.push(uploadedFile);
+      } else if (part.type === 'field' && part.fieldname === 'source') {
+        // Read the source field value
+        source = part.value as string;
       }
     }
 

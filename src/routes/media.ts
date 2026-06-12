@@ -4,6 +4,7 @@ import {
   createFolder,
   deleteFolder,
   getFilesByFolder,
+  getAllMediaFiles,
   uploadFilesToFolder,
   deleteFile,
   seedDefaultFolders,
@@ -20,6 +21,7 @@ const media: FastifyPluginAsync = async (fastify) => {
 
   // File routes
   fastify.get('/folders/:id/files', getFilesByFolder);
+  fastify.get('/files/all', getAllMediaFiles);
   fastify.post('/folders/:id/files', uploadFilesToFolder);
   fastify.delete('/files/:id', deleteFile);
 };

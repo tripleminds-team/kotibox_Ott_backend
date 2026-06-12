@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { FastifyRequest } from 'fastify';
+import { MediaFileModel } from '../models/MediaFile';
+import { Types } from 'mongoose';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +90,7 @@ export interface UploadedFileInfo {
   fileSize: number; // in bytes
   mimeType: string;
   uploadType: UploadType;
+  storageType?: 'local' | 's3';
 }
 
 // Ensure upload directory exists
@@ -124,7 +127,13 @@ export const saveFileFromPart = async (
   part: any,
   request: FastifyRequest,
   uploadType: UploadType,
-  customDir?: string
+  customDir?: string,
+  options?: {
+    trackInMediaLibrary?: boolean;
+    source?: string;
+    sourceId?: string;
+    folderId?: string;
+  }
 ): Promise<UploadedFileInfo> => {
   const typeConfig = UPLOAD_TYPES[uploadType];
   const targetDir = customDir || typeConfig.defaultDir;
@@ -145,25 +154,48 @@ export const saveFileFromPart = async (
   const fullFilePath = path.join(UPLOADS_ROOT, relativeFilePath);
 
   // Save file to disk
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const writeStream = fs.createWriteStream(fullFilePath);
     part.file.pipe(writeStream);
 
-    writeStream.on('finish', () => {
+    writeStream.on('finish', async () => {
       const stats = fs.statSync(fullFilePath);
       const protocol = request.protocol;
       const host = request.headers.host;
       const baseUrl = `${protocol}://${host}`;
 
-      resolve({
+      const fileInfo: UploadedFileInfo = {
         originalName: part.filename,
         fileName,
         filePath: `/uploads/${relativeFilePath.replace(/\\/g, '/')}`,
         url: `${baseUrl}/uploads/${relativeFilePath.replace(/\\/g, '/')}`,
         fileSize: stats.size,
         mimeType: part.mimetype || 'application/octet-stream',
-        uploadType
-      });
+        uploadType,
+        storageType: 'local'
+      };
+
+      // Track in media library if enabled
+      if (options?.trackInMediaLibrary !== false) {
+        try {
+          await MediaFileModel.create({
+            name: part.filename,
+            url: fileInfo.url,
+            filePath: fileInfo.filePath,
+            fileSize: stats.size,
+            fileType: part.mimetype || 'application/octet-stream',
+            folder: options?.folderId ? new Types.ObjectId(options.folderId) : undefined,
+            source: options?.source || uploadType.toLowerCase(),
+            sourceId: options?.sourceId ? new Types.ObjectId(options.sourceId) : undefined,
+            storageType: 'local'
+          });
+        } catch (error) {
+          // Log error but don't fail the upload
+          console.error('Failed to track file in media library:', error);
+        }
+      }
+
+      resolve(fileInfo);
     });
 
     writeStream.on('error', reject);
