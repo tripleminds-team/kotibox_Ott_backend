@@ -106,21 +106,21 @@ export interface ISettings extends Document {
 const SettingsSchema = new Schema<ISettings>(
   {
     // Business
-    platformName: { type: String, default: 'StreamVault' },
+    platformName: { type: String, default: 'Kotibox' },
     contactNo: { type: String, default: '' },
     inquiryEmail: { type: String, default: '' },
     siteDescription: { type: String, default: '' },
-    copyrightText: { type: String, default: '© 2026 StreamVault. All Rights Reserved.' },
+    copyrightText: { type: String, default: '© 2026 Kotibox. All Rights Reserved.' },
     facebookUrl: { type: String, default: '' },
     twitterUrl: { type: String, default: '' },
     instagramUrl: { type: String, default: '' },
     youtubeUrl: { type: String, default: '' },
     // Branding
-    logoUrl: { type: String, default: '' },
-    darkLogoUrl: { type: String, default: '' },
-    lightLogoUrl: { type: String, default: '' },
+    logoUrl: { type: String, default: 'https://i.imgur.com/45cG5Kc.png' },
+    darkLogoUrl: { type: String, default: 'https://i.imgur.com/45cG5Kc.png' },
+    lightLogoUrl: { type: String, default: 'https://i.imgur.com/45cG5Kc.png' },
     faviconUrl: { type: String, default: '' },
-    logoStyle: { type: String, enum: ['icon', 'fill'], default: 'icon' },
+    logoStyle: { type: String, enum: ['icon', 'fill'], default: 'fill' },
     loginTitle: { type: String, default: 'Welcome Back' },
     loginSubtitle: { type: String, default: 'Admin Console' },
     loginButtonText: { type: String, default: 'Sign In' },
@@ -132,8 +132,8 @@ const SettingsSchema = new Schema<ISettings>(
     mailEncryption: { type: String, default: 'tls' },
     mailUsername: { type: String, default: '' },
     mailPassword: { type: String, default: '' },
-    mailFrom: { type: String, default: '' },
-    mailFromName: { type: String, default: 'StreamVault' },
+    mailFrom: { type: String, default: 'info@kotibox.com' },
+    mailFromName: { type: String, default: 'Kotibox' },
     // Storage
     storageDriver: { type: String, enum: ['local', 's3', 'bunny'], default: 'local' },
     awsAccessKeyId: { type: String, default: '' },
