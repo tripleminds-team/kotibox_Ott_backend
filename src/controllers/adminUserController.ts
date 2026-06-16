@@ -5,6 +5,29 @@ import { AdminUserModel } from '../models/AdminUser';
 import { logger } from '../lib/logger';
 import { sendWelcomeEmail } from '../lib/email';
 
+// Default module permissions to ensure we have all fields
+const DEFAULT_MODULE_PERMISSIONS = {
+  movies: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  shows: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  genres: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  actors: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  directors: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  languages: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  categories: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  mediaLibrary: { canView: true, canUpload: false, canDelete: false },
+  banners: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  promotions: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  influencers: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  ads: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  pages: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  faqs: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  subscriptions: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  subscriptionPlans: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  planLimits: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  notifications: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+};
+
 // Generate random password
 const generatePassword = (length: number = 12): string => {
   const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
@@ -13,6 +36,19 @@ const generatePassword = (length: number = 12): string => {
     password += charset.charAt(Math.floor(Math.random() * charset.length));
   }
   return password;
+};
+
+// Helper function to merge permissions
+const mergeModulePermissions = (existing: any) => {
+  if (!existing) return DEFAULT_MODULE_PERMISSIONS;
+  const merged = { ...DEFAULT_MODULE_PERMISSIONS };
+  for (const key of Object.keys(DEFAULT_MODULE_PERMISSIONS) as Array<keyof typeof DEFAULT_MODULE_PERMISSIONS>) {
+    merged[key] = {
+      ...DEFAULT_MODULE_PERMISSIONS[key],
+      ...(existing[key] || {}),
+    };
+  }
+  return merged;
 };
 
 // Get all admin users with pagination
@@ -57,6 +93,7 @@ export const getAllAdminUsers = async (request: FastifyRequest, reply: FastifyRe
     const usersWithId = users.map((user) => ({
       ...user,
       id: user._id?.toString(),
+      modulePermissions: mergeModulePermissions(user.modulePermissions),
     }));
 
     return reply.send({
@@ -94,6 +131,7 @@ export const getAdminUserById = async (request: FastifyRequest, reply: FastifyRe
       data: {
         ...user,
         id: user._id?.toString(),
+        modulePermissions: mergeModulePermissions(user.modulePermissions),
       },
     });
   } catch (error: any) {
@@ -118,6 +156,19 @@ export const createAdminUser = async (request: FastifyRequest, reply: FastifyRep
     const password = generatePassword(12);
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Merge module permissions with defaults
+    const mergedModulePermissions = {
+      ...DEFAULT_MODULE_PERMISSIONS,
+      ...body.modulePermissions,
+    };
+    // Ensure each module's permissions are merged with defaults
+    for (const key of Object.keys(DEFAULT_MODULE_PERMISSIONS) as Array<keyof typeof DEFAULT_MODULE_PERMISSIONS>) {
+      mergedModulePermissions[key] = {
+        ...DEFAULT_MODULE_PERMISSIONS[key],
+        ...(body.modulePermissions?.[key] || {}),
+      };
+    }
+
     // Create user
     const user = await AdminUserModel.create({
       email: body.email.toLowerCase(),
@@ -125,7 +176,7 @@ export const createAdminUser = async (request: FastifyRequest, reply: FastifyRep
       phone: body.phone,
       passwordHash,
       role: body.role || 'influencer',
-      modulePermissions: body.modulePermissions,
+      modulePermissions: mergedModulePermissions,
       createdBy: currentUser?.id,
     });
 
@@ -169,7 +220,21 @@ export const updateAdminUser = async (request: FastifyRequest, reply: FastifyRep
     if (body.email) updateData.email = body.email.toLowerCase();
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.role) updateData.role = body.role;
-    if (body.modulePermissions) updateData.modulePermissions = body.modulePermissions;
+    if (body.modulePermissions) {
+      // Merge module permissions with defaults
+      const mergedModulePermissions = {
+        ...DEFAULT_MODULE_PERMISSIONS,
+        ...body.modulePermissions,
+      };
+      // Ensure each module's permissions are merged with defaults
+      for (const key of Object.keys(DEFAULT_MODULE_PERMISSIONS) as Array<keyof typeof DEFAULT_MODULE_PERMISSIONS>) {
+        mergedModulePermissions[key] = {
+          ...DEFAULT_MODULE_PERMISSIONS[key],
+          ...(body.modulePermissions?.[key] || {}),
+        };
+      }
+      updateData.modulePermissions = mergedModulePermissions;
+    }
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
     const user = await AdminUserModel.findByIdAndUpdate(

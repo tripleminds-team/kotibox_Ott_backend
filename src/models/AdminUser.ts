@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IModulePermissions {
   movies: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  shows: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
   genres: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
   actors: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
   directors: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
@@ -10,6 +11,15 @@ export interface IModulePermissions {
   mediaLibrary: { canView: boolean; canUpload: boolean; canDelete: boolean };
   banners: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
   promotions: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  influencers: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  ads: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  pages: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  faqs: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  subscriptions: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  subscriptionPlans: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  planLimits: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  notifications: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
+  notificationTemplates: { canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean };
 }
 
 export interface IAdminUser extends Document {
@@ -30,6 +40,7 @@ export interface IAdminUser extends Document {
 
 const defaultModulePermissions: IModulePermissions = {
   movies: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  shows: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   genres: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   actors: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   directors: { canView: true, canCreate: false, canEdit: false, canDelete: false },
@@ -38,6 +49,15 @@ const defaultModulePermissions: IModulePermissions = {
   mediaLibrary: { canView: true, canUpload: false, canDelete: false },
   banners: { canView: true, canCreate: false, canEdit: false, canDelete: false },
   promotions: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  influencers: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  ads: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  pages: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  faqs: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  subscriptions: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  subscriptionPlans: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  planLimits: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  notifications: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+  notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
 };
 
 const AdminUserSchema = new Schema<IAdminUser>(
@@ -55,6 +75,7 @@ const AdminUserSchema = new Schema<IAdminUser>(
     modulePermissions: {
       type: {
         movies: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        shows: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
         genres: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
         actors: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
         directors: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
@@ -63,6 +84,15 @@ const AdminUserSchema = new Schema<IAdminUser>(
         mediaLibrary: { canView: Boolean, canUpload: Boolean, canDelete: Boolean },
         banners: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
         promotions: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        influencers: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        ads: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        pages: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        faqs: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        subscriptions: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        subscriptionPlans: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        planLimits: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        notifications: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
+        notificationTemplates: { canView: Boolean, canCreate: Boolean, canEdit: Boolean, canDelete: Boolean },
       },
       default: defaultModulePermissions,
     },
