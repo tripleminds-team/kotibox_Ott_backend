@@ -9,6 +9,10 @@ export interface ISection extends Document {
   limit: number;
   position: number;
   isActive: boolean;
+  // Layout options for the app
+  layout?: 'horizontal' | 'vertical' | 'grid-2' | 'grid-3' | 'reels'; // Horizontal scroll, vertical list, 2-column, 3-column, or reels-style
+  showViewAll?: boolean; // Whether to show "View All" button
+  itemType?: 'card' | 'poster' | 'thumbnail'; // Type of item display
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,18 @@ const SectionSchema = new Schema<ISection>(
     limit: { type: Number, default: 10 },
     position: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true, index: true },
+    // Layout fields
+    layout: { 
+      type: String, 
+      enum: ['horizontal', 'vertical', 'grid-2', 'grid-3', 'reels'], 
+      default: 'horizontal' 
+    },
+    showViewAll: { type: Boolean, default: true },
+    itemType: { 
+      type: String, 
+      enum: ['card', 'poster', 'thumbnail'], 
+      default: 'poster' 
+    },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

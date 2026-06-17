@@ -203,6 +203,12 @@ async function seedSampleContent() {
     { title: 'Beach Romance', genre: 'Romance', views: 2100000, daysOld: 6, trending: true, isNew: true, featured: false },
     { title: 'Political Thriller', genre: 'Thriller', views: 6900000, daysOld: 140, trending: true, isNew: false, featured: true },
     { title: 'Music School', genre: 'Drama', views: 1800000, daysOld: 22, trending: false, isNew: true, featured: false },
+    // Add MORE dummy content!
+    { title: 'Mountain Escape', genre: 'Adventure', views: 3900000, daysOld: 17, trending: true, isNew: true, featured: false },
+    { title: 'Desert Nights', genre: 'Romance', views: 4200000, daysOld: 23, trending: true, isNew: true, featured: false },
+    { title: 'City Lights', genre: 'Drama', views: 2900000, daysOld: 33, trending: false, isNew: false, featured: false },
+    { title: 'Space Odyssey', genre: 'Sci-Fi', views: 7100000, daysOld: 88, trending: true, isNew: false, featured: true },
+    { title: 'Forest Secrets', genre: 'Mystery', views: 5300000, daysOld: 41, trending: true, isNew: true, featured: false },
   ];
 
   const thumbnails = [
@@ -214,6 +220,10 @@ async function seedSampleContent() {
     'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1489370958616-7beeec353e52?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=600&fit=crop&q=80',
   ];
 
   const content = dramaData.map((drama, index) => {
@@ -426,19 +436,21 @@ async function seedEpisodes() {
       for (let i = 1; i <= numEpisodes; i++) {
         episodes.push({
           contentId: item._id,
-          title: `Episode ${i}`,
-          description: `Description for episode ${i} of ${item.title}`,
-          thumbnail: 'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=400&h=225&fit=crop&q=80',
-          duration: 1200,
+          title: `${item.title} - Episode ${i}`,
+          description: `Watch ${item.title} Episode ${i} - ${item.description}`,
+          thumbnail: item.thumbnail,
+          duration: 1200 + Math.floor(Math.random() * 600), // 20-30 minutes
           season: 1,
           episode: i,
-          isFree: true,
-          isLocked: false,
+          isFree: i <= 3, // First 3 free
+          isLocked: i > 3,
           hlsUrl: `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`, // Public test stream URL
           views: Math.floor(Math.random() * 1000000),
-          downloadAllowed: false,
-          subtitleLanguages: [],
-          audioLanguages: [],
+          likes: Math.floor(Math.random() * 50000),
+          shares: Math.floor(Math.random() * 10000),
+          downloadAllowed: i <= 3,
+          subtitleLanguages: ['Hindi', 'English'],
+          audioLanguages: ['Hindi'],
           processingStatus: 'ready' as const,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -545,29 +557,29 @@ async function seedSections() {
   await SectionModel.deleteMany({});
 
   const dramaSections = [
-    { key: 'top-10-story-tv', title: 'Top 10 on Story TV', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 1, isActive: true },
-    { key: 'ceo-billionaire', title: 'CEO Billionaire', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true },
-    { key: 'just-launched', title: 'Just Launched', contentType: 'drama', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true },
-    { key: 'love-affairs', title: 'Love Affairs', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true },
-    { key: 'binge-worthy', title: 'Binge Worthy Series', contentType: 'drama', filter: { sections: 'binge-worthy' }, sortBy: { views: -1 }, limit: 10, position: 5, isActive: true },
-    { key: 'story-tv-specials', title: 'Story TV Specials', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true },
-    { key: 'top-10-new-releases', title: 'Top 10 New Releases', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true },
-    { key: 'top-dramas', title: 'Top Dramas Of All Time', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 8, isActive: true },
-    { key: 'royal-affair', title: 'Royal Affair', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true },
-    { key: 'mystery-mansion', title: 'Mystery Mansion', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true },
-    { key: 'small-town-dreams', title: 'Small Town Dreams', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true },
-    { key: 'college-days', title: 'College Days', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true },
-    { key: 'crime-patrol', title: 'Crime Patrol', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true },
-    { key: 'love-in-paris', title: 'Love in Paris', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true },
-    { key: 'the-heist', title: 'The Heist', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true },
-    { key: 'family-secrets', title: 'Family Secrets', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true },
+    { key: 'top-10-story-tv', title: 'Top 10 on Story TV', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
+    { key: 'ceo-billionaire', title: 'CEO Billionaire', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true, layout: 'horizontal' },
+    { key: 'just-launched', title: 'Just Launched', contentType: 'drama', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'vertical' },
+    { key: 'love-affairs', title: 'Love Affairs', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'horizontal' },
+    { key: 'binge-worthy', title: 'Binge Worthy Series', contentType: 'drama', filter: { sections: 'binge-worthy' }, sortBy: { views: -1 }, limit: 10, position: 5, isActive: true, layout: 'grid-2' },
+    { key: 'story-tv-specials', title: 'Story TV Specials', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true, layout: 'horizontal' },
+    { key: 'top-10-new-releases', title: 'Top 10 New Releases', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true, layout: 'vertical' },
+    { key: 'top-dramas', title: 'Top Dramas Of All Time', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 8, isActive: true, layout: 'horizontal' },
+    { key: 'royal-affair', title: 'Royal Affair', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true, layout: 'horizontal' },
+    { key: 'mystery-mansion', title: 'Mystery Mansion', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true, layout: 'grid-3' },
+    { key: 'small-town-dreams', title: 'Small Town Dreams', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true, layout: 'horizontal' },
+    { key: 'college-days', title: 'College Days', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true, layout: 'vertical' },
+    { key: 'crime-patrol', title: 'Crime Patrol', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true, layout: 'horizontal' },
+    { key: 'love-in-paris', title: 'Love in Paris', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true, layout: 'horizontal' },
+    { key: 'the-heist', title: 'The Heist', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true, layout: 'grid-2' },
+    { key: 'family-secrets', title: 'Family Secrets', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true, layout: 'horizontal' },
   ];
 
   const movieSections = [
-    { key: 'featured', title: 'Featured', contentType: 'movie', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, position: 1, isActive: true },
-    { key: 'trending', title: 'Trending', contentType: 'movie', filter: { trending: true }, sortBy: { views: -1 }, limit: 10, position: 2, isActive: true },
-    { key: 'new-releases', title: 'New Releases', contentType: 'movie', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true },
-    { key: 'top-rated', title: 'Top Rated', contentType: 'movie', sortBy: { views: -1 }, limit: 10, position: 4, isActive: true },
+    { key: 'featured', title: 'Featured', contentType: 'movie', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
+    { key: 'trending', title: 'Trending', contentType: 'movie', filter: { trending: true }, sortBy: { views: -1 }, limit: 10, position: 2, isActive: true, layout: 'vertical' },
+    { key: 'new-releases', title: 'New Releases', contentType: 'movie', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'horizontal' },
+    { key: 'top-rated', title: 'Top Rated', contentType: 'movie', sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'grid-2' },
   ];
 
   await SectionModel.insertMany([...dramaSections, ...movieSections]);
