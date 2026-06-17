@@ -62,14 +62,14 @@ const mapBanner = (banner: any, episodeCount = 0) => {
 const getFallbackSections = (tab: 'drama' | 'movie') => {
   const fallbacks = {
     drama: [
-      { key: 'top-10-story-tv', title: 'Top 10 on Story TV', sortBy: { views: -1 }, limit: 10, layout: 'horizontal' },
-      { key: 'just-launched', title: 'Just Launched', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'horizontal' },
-      { key: 'trending-dramas', title: 'Trending Dramas', filter: { trending: true }, sortBy: { views: -1 }, limit: 10, layout: 'vertical' },
-      { key: 'featured-dramas', title: 'Featured Dramas', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'grid-2' },
+      { key: 'top-10-story-tv', title: 'Top 10 on Story TV', category: 'Top 10', sortBy: { views: -1 }, limit: 10, layout: 'horizontal' },
+      { key: 'just-launched', title: 'Just Launched', category: 'Recently Added', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'horizontal' },
+      { key: 'trending-dramas', title: 'Trending Dramas', category: 'Trending', filter: { trending: true }, sortBy: { views: -1 }, limit: 10, layout: 'vertical' },
+      { key: 'featured-dramas', title: 'Featured Dramas', category: 'Featured', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'grid-2' },
     ],
     movie: [
-      { key: 'featured', title: 'Featured', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'horizontal' },
-      { key: 'top-movies', title: 'Top Movies', sortBy: { views: -1 }, limit: 10, layout: 'vertical' },
+      { key: 'featured', title: 'Featured', category: 'Featured', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, layout: 'horizontal' },
+      { key: 'top-movies', title: 'Top Movies', category: 'Top Rated', sortBy: { views: -1 }, limit: 10, layout: 'vertical' },
     ],
   };
   return fallbacks[tab];
@@ -160,7 +160,11 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     const mappedSections = sectionsWithContent.map(section => ({
       key: section.key,
       title: section.title,
+<<<<<<< HEAD
       name: section.title,
+=======
+      category: section.category,
+>>>>>>> b20e6e9 (new)
       layout: section.layout || 'horizontal',
       showViewAll: section.showViewAll !== false,
       itemType: section.itemType || 'poster',

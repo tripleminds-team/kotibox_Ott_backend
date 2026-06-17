@@ -269,12 +269,12 @@ async function seedSampleContent() {
       isExclusive: index % 4 === 0,
       downloadAllowed: index % 2 === 0,
       cast: [
-        { name: 'Actor ' + (index + 1), role: 'Lead Actor', character: 'Hero ' + (index + 1) },
-        { name: 'Actress ' + (index + 1), role: 'Lead Actress', character: 'Heroine ' + (index + 1) }
+        { name: 'Raj Kumar', role: 'Lead Actor', character: 'Hero ' + (index + 1) },
+        { name: 'Priya Sharma', role: 'Lead Actress', character: 'Heroine ' + (index + 1) }
       ],
-      crew: [{ name: 'Director ' + (index + 1), role: 'Director' }],
-      director: 'Director ' + (index + 1),
-      producer: 'Producer ' + (index + 1),
+      crew: [{ name: 'Vikram Singh', role: 'Director' }],
+      director: 'Vikram Singh',
+      producer: 'Amit Patel',
       studio: 'Story TV Originals',
       country: 'India',
       tags: [drama.genre.toLowerCase(), 'drama', 'must-watch'],
@@ -299,6 +299,7 @@ async function seedMovies() {
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
 
   const movieData = [
+<<<<<<< HEAD
     { title: 'Neon Prophecy',        genre: 'Sci-Fi',    views: 1847293, daysOld: 90,  trending: true,  isNew: true,  featured: true,  imdb: 8.2, rating: 'TV-MA', age: 17 },
     { title: 'The Last Heist',       genre: 'Crime',     views: 2341120, daysOld: 60,  trending: true,  isNew: true,  featured: false, imdb: 7.8, rating: 'TV-14', age: 14 },
     { title: 'Echoes of Tomorrow',   genre: 'Sci-Fi',    views: 1234560, daysOld: 14,  trending: false, isNew: true,  featured: false, imdb: 7.5, rating: 'PG-13', age: 13 },
@@ -332,10 +333,74 @@ async function seedMovies() {
   ];
 
   const thumbnails = [
+=======
+    { title: 'Neon Prophecy',          genre: 'Sci-Fi',    views: 5647293, daysOld: 30,  trending: true,  isNew: true,  featured: false },
+    { title: 'The Last Heist',          genre: 'Crime',     views: 3241520, daysOld: 45,  trending: true,  isNew: true,  featured: false },
+    { title: 'Echoes of Tomorrow',     genre: 'Sci-Fi',    views: 7241890, daysOld: 120, trending: true,  isNew: false, featured: true  },
+    { title: 'Midnight Runner',        genre: 'Action',    views: 1892345, daysOld: 15,  trending: false, isNew: true,  featured: false },
+    { title: 'The Great Escape',       genre: 'Thriller',  views: 9876543, daysOld: 365, trending: true,  isNew: false, featured: true  },
+    { title: 'Summer Romance',         genre: 'Romance',   views: 4500000, daysOld: 25,  trending: true,  isNew: true,  featured: false },
+    { title: 'Dark City',              genre: 'Thriller',  views: 6700000, daysOld: 60,  trending: true,  isNew: false, featured: true  },
+    { title: 'Family Reunion',          genre: 'Drama',     views: 2300000, daysOld: 80,  trending: false, isNew: true,  featured: false },
+    { title: 'College Road Trip',      genre: 'Comedy',    views: 3800000, daysOld: 40,  trending: true,  isNew: true,  featured: false },
+    { title: 'The Detective',          genre: 'Crime',     views: 8200000, daysOld: 150, trending: true,  isNew: false, featured: true  },
+    { title: 'Paris Dreams',           genre: 'Romance',   views: 1900000, daysOld: 10,  trending: true,  isNew: true,  featured: false },
+    { title: 'Bank Job',               genre: 'Thriller',  views: 5400000, daysOld: 70,  trending: true,  isNew: false, featured: false },
+    { title: 'Hidden Truths',          genre: 'Drama',     views: 2700000, daysOld: 90,  trending: false, isNew: true,  featured: false },
+    { title: 'Village Festival',       genre: 'Family',    views: 1500000, daysOld: 5,   trending: false, isNew: true,  featured: false },
+    { title: 'Agent X',                genre: 'Action',    views: 7500000, daysOld: 110, trending: true,  isNew: false, featured: true  },
+    { title: 'First Date',             genre: 'Romance',   views: 3100000, daysOld: 35,  trending: true,  isNew: true,  featured: false },
+    { title: 'Ocean Depths',           genre: 'Thriller',  views: 4900000, daysOld: 55,  trending: true,  isNew: false, featured: false },
+    { title: 'Wedding Bells',          genre: 'Romance',   views: 2200000, daysOld: 20,  trending: true,  isNew: true,  featured: false },
+    { title: 'Urban Legends',          genre: 'Horror',    views: 3600000, daysOld: 100, trending: false, isNew: false, featured: false },
+    { title: 'The Legacy',             genre: 'Drama',     views: 4200000, daysOld: 65,  trending: true,  isNew: false, featured: false },
+    { title: 'Coffee Shop',            genre: 'Romance',   views: 1700000, daysOld: 12,  trending: true,  isNew: true,  featured: false },
+    { title: 'Ghost Town',             genre: 'Horror',    views: 2800000, daysOld: 130, trending: false, isNew: false, featured: false },
+    { title: 'Sports Champion',        genre: 'Sports',    views: 5100000, daysOld: 48,  trending: true,  isNew: false, featured: false },
+    { title: 'Star Crossed',           genre: 'Romance',   views: 2400000, daysOld: 8,   trending: true,  isNew: true,  featured: false },
+    { title: 'Detective Story',        genre: 'Crime',     views: 6300000, daysOld: 85,  trending: true,  isNew: false, featured: true  },
+    { title: 'Modern Life',            genre: 'Family',    views: 1600000, daysOld: 18,  trending: false, isNew: true,  featured: false },
+    { title: 'High School',            genre: 'Romance',   views: 2000000, daysOld: 28,  trending: true,  isNew: true,  featured: false },
+    { title: 'Time Machine',           genre: 'Sci-Fi',    views: 4700000, daysOld: 75,  trending: true,  isNew: false, featured: false },
+    { title: 'The Promise',            genre: 'Drama',     views: 3300000, daysOld: 50,  trending: false, isNew: false, featured: false },
+    { title: 'Summer Love',            genre: 'Romance',   views: 1950000, daysOld: 14,  trending: true,  isNew: true,  featured: false },
+    { title: 'Medical Drama',          genre: 'Drama',     views: 4100000, daysOld: 95,  trending: true,  isNew: false, featured: false },
+    { title: 'Forbidden',              genre: 'Romance',   views: 5800000, daysOld: 32,  trending: true,  isNew: true,  featured: false },
+    { title: 'Haunted',                genre: 'Horror',    views: 3000000, daysOld: 115, trending: false, isNew: false, featured: false },
+    { title: 'Startup',                genre: 'Drama',     views: 2600000, daysOld: 38,  trending: false, isNew: true,  featured: false },
+    { title: 'Beach House',            genre: 'Romance',   views: 2100000, daysOld: 6,   trending: true,  isNew: true,  featured: false },
+    { title: 'Political Game',         genre: 'Thriller',  views: 6900000, daysOld: 140, trending: true,  isNew: false, featured: true  },
+    { title: 'Music Festival',         genre: 'Drama',     views: 1800000, daysOld: 22,  trending: false, isNew: true,  featured: false },
+    { title: 'Mountain Peak',          genre: 'Adventure', views: 3900000, daysOld: 17,  trending: true,  isNew: true,  featured: false },
+    { title: 'Desert Storm',           genre: 'Romance',   views: 4200000, daysOld: 23,  trending: true,  isNew: true,  featured: false },
+    { title: 'City Life',              genre: 'Drama',     views: 2900000, daysOld: 33,  trending: false, isNew: false, featured: false },
+    { title: 'Space Mission',          genre: 'Sci-Fi',    views: 7100000, daysOld: 88,  trending: true,  isNew: false, featured: true  },
+    { title: 'Forest Mystery',         genre: 'Mystery',   views: 5300000, daysOld: 41,  trending: true,  isNew: true,  featured: false },
+    // Additional movies to fill sections
+    { title: 'Broken Dreams',          genre: 'Drama',     views: 3450000, daysOld: 52,  trending: true,  isNew: false, featured: false },
+    { title: 'Last Dance',             genre: 'Romance',   views: 2750000, daysOld: 19,  trending: true,  isNew: true,  featured: false },
+    { title: 'Shadow',                 genre: 'Thriller',  views: 4850000, daysOld: 77,  trending: true,  isNew: false, featured: false },
+    { title: 'Eternal',                genre: 'Romance',   views: 3150000, daysOld: 29,  trending: false, isNew: true,  featured: false },
+    { title: 'Silent Storm',           genre: 'Drama',     views: 5650000, daysOld: 63,  trending: true,  isNew: false, featured: false },
+    { title: 'Midnight',               genre: 'Thriller',  views: 4100000, daysOld: 44,  trending: true,  isNew: false, featured: false },
+    { title: 'Blind Faith',            genre: 'Drama',     views: 2550000, daysOld: 57,  trending: false, isNew: false, featured: false },
+    { title: 'Crown',                  genre: 'Epic',      views: 6800000, daysOld: 200, trending: true,  isNew: false, featured: true  },
+    { title: 'Sweet Lie',              genre: 'Romance',   views: 1850000, daysOld: 9,   trending: true,  isNew: true,  featured: false },
+  ];
+
+  const thumbnails = [
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1478720568477-152d9b164e63?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1460186141667-b3180f76e83b?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=600&fit=crop&q=80',
+>>>>>>> b20e6e9 (new)
     'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&h=600&fit=crop&q=80',
+<<<<<<< HEAD
     'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=600&fit=crop&q=80',
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&q=80',
@@ -368,10 +433,26 @@ async function seedMovies() {
     const genreSections = genreSectionMap[movie.genre] || ['hidden-gems'];
     const extraSections = [(index % 5 === 0 ? 'award-winners' : allMovieSections[index % allMovieSections.length])];
     const assignedSections = [...new Set([...genreSections, ...extraSections])];
+=======
+    'https://images.unsplash.com/photo-1489370958616-7beeec353e52?w=400&h=600&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=600&fit=crop&q=80',
+  ];
+
+  const allSections = ['featured', 'trending', 'new-releases', 'top-rated'];
+
+  const movies = movieData.map((movie, index) => {
+    const numSections = 1 + (index % 2);
+    let assignedSections: string[] = [];
+    for (let i = 0; i < numSections; i++) {
+      assignedSections.push(allSections[(index + i) % allSections.length]);
+    }
+    assignedSections = [...new Set(assignedSections)];
+>>>>>>> b20e6e9 (new)
 
     return {
       title: movie.title,
       originalTitle: movie.title,
+<<<<<<< HEAD
       description: `A gripping ${movie.genre.toLowerCase()} film that will keep you at the edge of your seat.`,
       shortDescription: `${movie.genre} movie you won't forget`,
       thumbnail: thumbnails[index % thumbnails.length],
@@ -389,6 +470,26 @@ async function seedMovies() {
       releaseDate: daysAgo(movie.daysOld),
       status: 'published',
       hlsUrl: `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`,
+=======
+      description: `A captivating ${movie.genre.toLowerCase()} movie that will keep you entertained from start to finish.`,
+      shortDescription: `${movie.genre} movie you won't forget`,
+      thumbnail: thumbnails[index % thumbnails.length],
+      bannerImage: thumbnails[(index + 2) % thumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
+      posterImage: thumbnails[(index + 1) % thumbnails.length].replace('w=400&h=600', 'w=600&h=900'),
+      trailerUrl: `https://example.com/trailer/${movie.title.toLowerCase().replace(/ /g, '-')}.mp4`,
+      genres: [movie.genre],
+      categories: [movie.genre],
+      languages: ['Hindi', 'English'],
+      subtitleLanguages: ['Hindi', 'English'],
+      audioLanguages: ['Hindi'],
+      year: 2023 + (index % 2),
+      rating: index % 3 === 0 ? 'TV-MA' : (index % 3 === 1 ? 'TV-14' : 'TV-PG'),
+      ageRating: index % 3 === 0 ? 17 : (index % 3 === 1 ? 13 : 10),
+      duration: 7200 + Math.floor(Math.random() * 3600), // 2-3 hours
+      releaseDate: daysAgo(movie.daysOld),
+      status: 'published',
+      hlsUrl: `https://example.com/hls/${movie.title.toLowerCase().replace(/ /g, '-')}/master.m3u8`,
+>>>>>>> b20e6e9 (new)
       views: movie.views,
       likes: Math.floor(movie.views * 0.08),
       shares: Math.floor(movie.views * 0.02),
@@ -398,6 +499,7 @@ async function seedMovies() {
       isExclusive: index % 4 === 0,
       downloadAllowed: index % 2 === 0,
       sections: assignedSections,
+<<<<<<< HEAD
       cast: [],
       crew: [],
       director: 'Director ' + (index + 1),
@@ -410,11 +512,28 @@ async function seedMovies() {
       planRequired: index % 4 === 0 ? 'premium' : (index % 4 === 1 ? 'basic' : 'free'),
       createdAt: daysAgo(movie.daysOld),
       updatedAt: daysAgo(Math.max(0, movie.daysOld - 5)),
+=======
+      cast: [
+        { name: 'Raj Kumar', role: 'Lead Actor', character: 'Hero ' + (index + 1) },
+        { name: 'Priya Sharma', role: 'Lead Actress', character: 'Heroine ' + (index + 1) },
+      ],
+      crew: [{ name: 'Vikram Singh', role: 'Director' }],
+      director: 'Vikram Singh',
+      producer: 'Amit Patel',
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: [movie.genre.toLowerCase(), 'movie', 'must-watch'],
+      imdbRating: 7.5 + (index % 20) / 10,
+      maturityContent: index % 3 === 0 ? ['Violence', 'Strong Language'] : [],
+      planRequired: index % 4 === 0 ? 'premium' : (index % 4 === 1 ? 'basic' : 'free'),
+      createdAt: daysAgo(movie.daysOld),
+      updatedAt: daysAgo(movie.daysOld - Math.min(10, movie.daysOld)),
+>>>>>>> b20e6e9 (new)
     };
   });
 
   await MovieModel.insertMany(movies);
-  logger.info('Seeded sample movies');
+  logger.info(`Seeded ${movies.length} sample movies`);
 }
 
 async function seedEpisodes() {
@@ -552,26 +671,27 @@ async function seedSections() {
   await SectionModel.deleteMany({});
 
   const dramaSections = [
-    { key: 'top-10-story-tv', title: 'Top 10 on Story TV', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
-    { key: 'ceo-billionaire', title: 'CEO Billionaire', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true, layout: 'horizontal' },
-    { key: 'just-launched', title: 'Just Launched', contentType: 'drama', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'horizontal' },
-    { key: 'love-affairs', title: 'Love Affairs', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'horizontal' },
-    { key: 'binge-worthy', title: 'Binge Worthy Series', contentType: 'drama', filter: { sections: 'binge-worthy' }, sortBy: { views: -1 }, limit: 10, position: 5, isActive: true, layout: 'horizontal' },
-    { key: 'story-tv-specials', title: 'Story TV Specials', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true, layout: 'horizontal' },
-    { key: 'top-10-new-releases', title: 'Top 10 New Releases', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true, layout: 'horizontal' },
-    { key: 'top-dramas', title: 'Top Dramas Of All Time', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 8, isActive: true, layout: 'horizontal' },
-    { key: 'royal-affair', title: 'Royal Affair', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true, layout: 'horizontal' },
-    { key: 'mystery-mansion', title: 'Mystery Mansion', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true, layout: 'horizontal' },
-    { key: 'small-town-dreams', title: 'Small Town Dreams', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true, layout: 'horizontal' },
-    { key: 'college-days', title: 'College Days', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true, layout: 'horizontal' },
-    { key: 'crime-patrol', title: 'Crime Patrol', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true, layout: 'horizontal' },
-    { key: 'love-in-paris', title: 'Love in Paris', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true, layout: 'horizontal' },
-    { key: 'the-heist', title: 'The Heist', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true, layout: 'horizontal' },
-    { key: 'family-secrets', title: 'Family Secrets', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true, layout: 'horizontal' },
-    { key: 'all-dramas', title: 'All Dramas', contentType: 'drama', sortBy: { views: -1 }, limit: 50, position: 100, isActive: true, layout: 'vertical' },
+    { key: 'top-10-story-tv', title: 'Top 10 on Story TV', category: 'Top 10', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
+    { key: 'ceo-billionaire', title: 'CEO Billionaire', category: 'Featured', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true, layout: 'horizontal' },
+    { key: 'just-launched', title: 'Just Launched', category: 'Recently Added', contentType: 'drama', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'horizontal' },
+    { key: 'love-affairs', title: 'Love Affairs', category: 'Featured', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'horizontal' },
+    { key: 'binge-worthy', title: 'Binge Worthy Series', category: 'Trending', contentType: 'drama', filter: { sections: 'binge-worthy' }, sortBy: { views: -1 }, limit: 10, position: 5, isActive: true, layout: 'horizontal' },
+    { key: 'story-tv-specials', title: 'Story TV Specials', category: 'Featured', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true, layout: 'horizontal' },
+    { key: 'top-10-new-releases', title: 'Top 10 New Releases', category: 'Top 10', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true, layout: 'horizontal' },
+    { key: 'top-dramas', title: 'Top Dramas Of All Time', category: 'Top Rated', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 8, isActive: true, layout: 'horizontal' },
+    { key: 'royal-affair', title: 'Royal Affair', category: 'Featured', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true, layout: 'horizontal' },
+    { key: 'mystery-mansion', title: 'Mystery Mansion', category: 'Featured', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true, layout: 'horizontal' },
+    { key: 'small-town-dreams', title: 'Small Town Dreams', category: 'Featured', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true, layout: 'horizontal' },
+    { key: 'college-days', title: 'College Days', category: 'Featured', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true, layout: 'horizontal' },
+    { key: 'crime-patrol', title: 'Crime Patrol', category: 'Featured', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true, layout: 'horizontal' },
+    { key: 'love-in-paris', title: 'Love in Paris', category: 'Featured', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true, layout: 'horizontal' },
+    { key: 'the-heist', title: 'The Heist', category: 'Featured', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true, layout: 'horizontal' },
+    { key: 'family-secrets', title: 'Family Secrets', category: 'Featured', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true, layout: 'horizontal' },
+    { key: 'all-dramas', title: 'All Dramas', category: 'All', contentType: 'drama', sortBy: { views: -1 }, limit: 50, position: 100, isActive: true, layout: 'vertical' },
   ];
 
   const movieSections = [
+<<<<<<< HEAD
     { key: 'featured-movies',    title: 'Featured Movies',        contentType: 'movie', filter: { featured: true },              sortBy: { createdAt: -1 }, limit: 10, position: 1,  isActive: true, layout: 'horizontal' },
     { key: 'neon-prophecy',      title: 'Neon Prophecy',          contentType: 'movie', filter: { sections: 'neon-prophecy' },   sortBy: { createdAt: -1 }, limit: 10, position: 2,  isActive: true, layout: 'horizontal' },
     { key: 'trending-now',       title: 'Trending Now',           contentType: 'movie', filter: { trending: true },              sortBy: { views: -1 },     limit: 10, position: 3,  isActive: true, layout: 'horizontal' },
@@ -588,6 +708,12 @@ async function seedSections() {
     { key: 'award-winners',      title: 'Award Winners',          contentType: 'movie', filter: { sections: 'award-winners' },   sortBy: { imdbRating: -1 },limit: 10, position: 14, isActive: true, layout: 'horizontal' },
     { key: 'hidden-gems',        title: 'Hidden Gems',            contentType: 'movie', filter: { sections: 'hidden-gems' },     sortBy: { createdAt: -1 }, limit: 10, position: 15, isActive: true, layout: 'horizontal' },
     { key: 'all-movies',         title: 'All Movies',             contentType: 'movie', sortBy: { views: -1 },                   limit: 50, position: 100, isActive: true, layout: 'vertical' },
+=======
+    { key: 'featured', title: 'Featured', category: 'Featured', contentType: 'movie', filter: { featured: true }, sortBy: { createdAt: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
+    { key: 'trending', title: 'Trending', category: 'Trending', contentType: 'movie', filter: { trending: true }, sortBy: { views: -1 }, limit: 10, position: 2, isActive: true, layout: 'vertical' },
+    { key: 'new-releases', title: 'New Releases', category: 'Recently Added', contentType: 'movie', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'horizontal' },
+    { key: 'top-rated', title: 'Top Rated', category: 'Top Rated', contentType: 'movie', sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'grid-2' },
+>>>>>>> b20e6e9 (new)
   ];
 
   await SectionModel.insertMany([...dramaSections, ...movieSections]);

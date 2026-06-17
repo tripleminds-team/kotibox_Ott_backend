@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ISection extends Document {
   key: string;
   title: string;
+  category: string;
   contentType: 'drama' | 'movie';
   filter?: Record<string, any>;
   sortBy: Record<string, 1 | -1>;
@@ -21,6 +22,7 @@ const SectionSchema = new Schema<ISection>(
   {
     key: { type: String, required: true, unique: true },
     title: { type: String, required: true },
+    category: { type: String, required: true },
     contentType: {
       type: String,
       enum: ['drama', 'movie'],
