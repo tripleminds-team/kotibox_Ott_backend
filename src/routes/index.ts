@@ -23,6 +23,7 @@ import appSettingsRoutes from './appSettings';
 import dashboardRoutes from './dashboard';
 import movieRoutes from './movie';
 import adminUsersRoutes from './adminUsers';
+import { getHomePage } from '../controllers/appHomeController';
 
 const router: FastifyPluginAsync = async (fastify) => {
   fastify.register(healthRoutes);
@@ -49,6 +50,9 @@ const router: FastifyPluginAsync = async (fastify) => {
   fastify.register(dashboardRoutes);
   fastify.register(movieRoutes, { prefix: '/movies' });
   fastify.register(adminUsersRoutes, { prefix: '/admin-users' });
+  
+  // Home page route for app
+  fastify.get('/home', getHomePage);
 };
 
 export default router;

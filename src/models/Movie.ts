@@ -11,6 +11,7 @@ export interface IMovie extends Document {
   trailerUrl?: string;
   genres: mongoose.Types.ObjectId[];
   categories: mongoose.Types.ObjectId[];
+  sections: string[];
   languages: mongoose.Types.ObjectId[];
   subtitleLanguages: mongoose.Types.ObjectId[];
   audioLanguages: mongoose.Types.ObjectId[];
@@ -75,6 +76,7 @@ const MovieSchema = new Schema<IMovie>(
     trailerUrl: String,
     genres: [{ type: Schema.Types.ObjectId, ref: 'Genre' }],
     categories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
+    sections: { type: [String], default: [] },
     languages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
     subtitleLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
     audioLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],

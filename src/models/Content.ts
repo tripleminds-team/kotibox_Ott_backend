@@ -4,6 +4,8 @@ export interface IContent extends Document {
   title: string;
   originalTitle?: string;
   type: 'movie' | 'series';
+  contentType: 'drama' | 'movie';
+  sections: string[];
   description?: string;
   shortDescription?: string;
   thumbnail?: string;
@@ -56,6 +58,8 @@ const ContentSchema = new Schema<IContent>(
     title: { type: String, required: true, index: true },
     originalTitle: String,
     type: { type: String, enum: ['movie', 'series'], required: true },
+    contentType: { type: String, enum: ['drama', 'movie'], required: true, default: 'drama' },
+    sections: { type: [String], default: [] },
     description: String,
     shortDescription: String,
     thumbnail: String,

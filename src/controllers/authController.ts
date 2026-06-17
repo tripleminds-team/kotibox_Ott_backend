@@ -96,7 +96,7 @@ export const getMe = async (request: FastifyRequest, reply: FastifyReply) => {
       notifications: { canView: true, canCreate: false, canEdit: false, canDelete: false },
       notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
     };
-    const mergedModulePermissions = { ...defaultModulePermissions };
+    const mergedModulePermissions = { ...defaultModulePermissions } as any;
     if (admin.modulePermissions) {
       for (const key of Object.keys(defaultModulePermissions) as Array<keyof typeof defaultModulePermissions>) {
         mergedModulePermissions[key] = {

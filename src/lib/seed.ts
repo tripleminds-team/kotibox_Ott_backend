@@ -11,6 +11,9 @@ import { ContentModel } from '../models/Content';
 import { LanguageModel } from '../models/Language';
 import { NotificationTemplateModel } from '../models/NotificationTemplate';
 import { NotificationModel } from '../models/Notification';
+import { BannerModel } from '../models/Banner';
+import { MovieModel } from '../models/Movie';
+import { EpisodeModel } from '../models/Episode';
 
 async function seedSubscriptionPlans() {
   const count = await SubscriptionPlanModel.countDocuments();
@@ -156,74 +159,485 @@ async function seedAdminUsers() {
 }
 
 async function seedSampleContent() {
-  const count = await ContentModel.countDocuments();
-  if (count > 0) return;
+  await ContentModel.deleteMany({});
 
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
 
   const content = [
+    // Short Dramas (contentType: 'drama', type: 'series')
     {
-      title: 'Neon Prophecy', type: 'movie',
-      description: 'In a dystopian megacity, a rogue detective uncovers a conspiracy threatening the last free city on Earth.',
-      genres: ['Sci-Fi', 'Action', 'Thriller'], languages: ['English', 'Hindi'],
-      year: 2024, rating: 'TV-MA', status: 'published',
-      hlsUrl: 'https://example.com/hls/neon-prophecy/master.m3u8',
-      duration: 7560, views: 1847293, featured: true, trending: true, isNew: false,
-      director: 'Alex Rivera', studio: 'StreamVault Originals',
-      imdbRating: 8.2, tags: ['dystopian', 'cyberpunk', 'original'],
-      planRequired: 'free', createdAt: daysAgo(90), updatedAt: daysAgo(85),
+      title: 'CEO Billionaire',
+      type: 'series',
+      contentType: 'drama',
+      description: 'A powerful CEO falls in love with his assistant, but secrets from his past threaten their future.',
+      shortDescription: 'A romantic story of a billionaire and his assistant',
+      thumbnail: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&h=600&fit=crop&q=80',
+      genres: ['Romance', 'Drama'],
+      languages: ['Hindi', 'English'],
+      subtitleLanguages: ['Hindi', 'English'],
+      audioLanguages: ['Hindi'],
+      year: 2024,
+      rating: 'TV-14',
+      ageRating: 13,
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/ceo-billionaire/master.m3u8',
+      views: 5647293,
+      likes: 124532,
+      shares: 45231,
+      featured: false,
+      trending: true,
+      isNewContent: true,
+      isExclusive: true,
+      downloadAllowed: true,
+      cast: [
+        { name: 'Raj Sharma', role: 'Lead Actor', character: 'Arjun Oberoi' },
+        { name: 'Priya Patel', role: 'Lead Actress', character: 'Ananya' }
+      ],
+      crew: [{ name: 'Anil Verma', role: 'Director' }],
+      director: 'Anil Verma',
+      producer: 'Karan Joshi',
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: ['billionaire', 'romance', 'office-romance', 'original'],
+      imdbRating: 8.9,
+      maturityContent: ['Romantic Situations', 'Mild Language'],
+      seasons: 2,
+      sections: ['ceo-billionaire', 'binge-worthy'],
+      planRequired: 'free',
+      createdAt: daysAgo(30),
+      updatedAt: daysAgo(15),
     },
     {
-      title: 'The Last Heist', type: 'movie',
-      description: 'A legendary thief comes out of retirement for one final job that goes catastrophically wrong.',
-      genres: ['Crime', 'Thriller'], languages: ['English'],
-      year: 2024, rating: 'TV-14', status: 'published',
-      hlsUrl: 'https://example.com/hls/the-last-heist/master.m3u8',
-      duration: 6840, views: 2341120, featured: false, trending: true, isNew: false,
-      director: 'Sarah Kim', imdbRating: 7.8, tags: ['heist', 'crime'],
-      planRequired: 'free', createdAt: daysAgo(60), updatedAt: daysAgo(55),
+      title: 'Love Affairs',
+      type: 'series',
+      contentType: 'drama',
+      description: 'Three friends navigate complex relationships and hidden passions in modern Mumbai.',
+      shortDescription: 'A tale of love and friendship',
+      thumbnail: 'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1492633423870-43d1cd2775eb?w=1200&h=600&fit=crop&q=80',
+      genres: ['Romance', 'Drama'],
+      languages: ['Hindi'],
+      subtitleLanguages: ['Hindi', 'English'],
+      audioLanguages: ['Hindi'],
+      year: 2024,
+      rating: 'TV-MA',
+      ageRating: 17,
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/love-affairs/master.m3u8',
+      views: 3241520,
+      likes: 89234,
+      shares: 28341,
+      featured: false,
+      trending: true,
+      isNewContent: true,
+      isExclusive: false,
+      downloadAllowed: true,
+      cast: [
+        { name: 'Neha Singh', role: 'Lead Actress', character: 'Riya' },
+        { name: 'Rahul Mehta', role: 'Lead Actor', character: 'Dev' }
+      ],
+      crew: [{ name: 'Sneha Kapoor', role: 'Director' }],
+      director: 'Sneha Kapoor',
+      studio: 'Story TV',
+      country: 'India',
+      tags: ['love-triangle', 'modern-love', 'drama'],
+      imdbRating: 8.4,
+      maturityContent: ['Adult Content', 'Strong Language'],
+      seasons: 1,
+      sections: ['love-affairs', 'story-tv-specials'],
+      planRequired: 'free',
+      createdAt: daysAgo(45),
+      updatedAt: daysAgo(10),
     },
     {
-      title: 'Echoes of Tomorrow', type: 'movie',
-      description: 'A quantum physicist accidentally fragments the timeline and must repair reality before it collapses.',
-      genres: ['Sci-Fi', 'Drama'], languages: ['English', 'Hindi'],
-      year: 2024, rating: 'PG-13', status: 'draft',
-      duration: 8100, views: 0, isExclusive: true,
-      imdbRating: 0, tags: ['time-travel', 'quantum'],
-      planRequired: 'standard', createdAt: daysAgo(14), updatedAt: daysAgo(2),
+      title: 'Binge Worthy Series',
+      type: 'series',
+      contentType: 'drama',
+      description: 'A gripping thriller that will keep you on the edge of your seat with every episode.',
+      shortDescription: 'A thriller you can\'t miss',
+      thumbnail: 'https://images.unsplash.com/photo-1478720568477-152d9b164e63?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&h=600&fit=crop&q=80',
+      genres: ['Thriller', 'Drama'],
+      languages: ['Hindi', 'Tamil'],
+      subtitleLanguages: ['Hindi', 'Tamil', 'English'],
+      audioLanguages: ['Hindi', 'Tamil'],
+      year: 2024,
+      rating: 'TV-MA',
+      ageRating: 17,
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/binge-worthy/master.m3u8',
+      views: 7241890,
+      likes: 214567,
+      shares: 67234,
+      featured: true,
+      trending: true,
+      isNewContent: false,
+      isExclusive: true,
+      downloadAllowed: true,
+      cast: [
+        { name: 'Vikram Rathod', role: 'Lead Actor', character: 'Inspector Arjun' },
+        { name: 'Anita Desai', role: 'Lead Actress', character: 'Maya' }
+      ],
+      crew: [{ name: 'Rakesh Omprakash', role: 'Director' }],
+      director: 'Rakesh Omprakash',
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: ['thriller', 'crime', 'must-watch'],
+      imdbRating: 9.2,
+      maturityContent: ['Violence', 'Strong Language'],
+      seasons: 3,
+      sections: ['binge-worthy', 'top-dramas'],
+      planRequired: 'basic',
+      createdAt: daysAgo(120),
+      updatedAt: daysAgo(20),
     },
     {
-      title: 'Grid Zero', type: 'series',
-      description: 'An elite cyber-response unit battles a shadowy hacker collective threatening global infrastructure.',
-      genres: ['Action', 'Sci-Fi', 'Thriller'], languages: ['English', 'Hindi', 'Tamil'],
-      year: 2024, rating: 'TV-MA', status: 'published',
-      duration: null, views: 4521037, featured: true, trending: true, isNew: true,
-      isExclusive: true, director: 'Marcus Webb', seasons: 2,
-      imdbRating: 9.1, tags: ['cybersecurity', 'action', 'original', 'exclusive'],
-      planRequired: 'basic', createdAt: daysAgo(120), updatedAt: daysAgo(7),
+      title: 'Story TV Special',
+      type: 'series',
+      contentType: 'drama',
+      description: 'A collection of short stories from the heartland of India, celebrating love and life.',
+      shortDescription: 'Heartwarming short stories',
+      thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&h=600&fit=crop&q=80',
+      genres: ['Drama', 'Family'],
+      languages: ['Hindi', 'Marathi', 'Gujarati'],
+      subtitleLanguages: ['Hindi', 'English'],
+      audioLanguages: ['Hindi'],
+      year: 2024,
+      rating: 'TV-PG',
+      ageRating: 10,
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/story-tv-special/master.m3u8',
+      views: 1892345,
+      likes: 67890,
+      shares: 18234,
+      featured: false,
+      trending: false,
+      isNewContent: true,
+      isExclusive: true,
+      downloadAllowed: false,
+      cast: [
+        { name: 'Various', role: 'Ensemble Cast' }
+      ],
+      crew: [{ name: 'Multiple', role: 'Directors' }],
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: ['family', 'special', 'heartwarming'],
+      imdbRating: 8.1,
+      maturityContent: [],
+      seasons: 1,
+      sections: ['story-tv-specials'],
+      planRequired: 'free',
+      createdAt: daysAgo(15),
+      updatedAt: daysAgo(5),
     },
     {
-      title: 'The Frontier', type: 'series',
-      description: 'Stranded colonists on Mars fight for survival as rescue missions repeatedly fail.',
-      genres: ['Sci-Fi', 'Drama'], languages: ['English'],
-      year: 2023, rating: 'TV-14', status: 'published',
-      views: 3128440, featured: false, isNew: false, seasons: 2,
-      imdbRating: 8.6, tags: ['space', 'mars', 'survival'],
-      planRequired: 'free', createdAt: daysAgo(365), updatedAt: daysAgo(30),
-    },
-    {
-      title: 'Dark Inheritance', type: 'series',
-      description: 'A family of lawyers unravels a decades-long criminal conspiracy hidden within their own firm.',
-      genres: ['Crime', 'Drama'], languages: ['English', 'Hindi'],
-      year: 2024, rating: 'TV-MA', status: 'moderation',
-      views: 0, seasons: 1, tags: ['legal', 'crime-drama'],
-      planRequired: 'standard', createdAt: daysAgo(7), updatedAt: daysAgo(1),
+      title: 'Top Drama of All Time',
+      type: 'series',
+      contentType: 'drama',
+      description: 'An epic saga of love, betrayal, and redemption spanning three generations.',
+      shortDescription: 'An epic family saga',
+      thumbnail: 'https://images.unsplash.com/photo-1460186141667-b3180f76e83b?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=1200&h=600&fit=crop&q=80',
+      genres: ['Drama', 'Romance'],
+      languages: ['Hindi', 'English'],
+      subtitleLanguages: ['Hindi', 'English', 'Tamil'],
+      audioLanguages: ['Hindi', 'English'],
+      year: 2023,
+      rating: 'TV-MA',
+      ageRating: 17,
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/top-drama/master.m3u8',
+      views: 9876543,
+      likes: 345678,
+      shares: 123456,
+      featured: true,
+      trending: true,
+      isNewContent: false,
+      isExclusive: true,
+      downloadAllowed: true,
+      cast: [
+        { name: 'Amitabh Khan', role: 'Lead Actor', character: 'Raj' },
+        { name: 'Deepika Kapoor', role: 'Lead Actress', character: 'Simran' }
+      ],
+      crew: [{ name: 'Karan Johar', role: 'Director' }],
+      director: 'Karan Johar',
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: ['epic', 'family-saga', 'classic'],
+      imdbRating: 9.5,
+      maturityContent: ['Adult Themes', 'Violence'],
+      seasons: 5,
+      sections: ['top-dramas', 'top-10-story-tv', 'binge-worthy'],
+      planRequired: 'premium',
+      createdAt: daysAgo(365),
+      updatedAt: daysAgo(100),
     },
   ];
 
   await ContentModel.insertMany(content);
-  logger.info('Seeded sample content');
+  logger.info('Seeded sample short dramas');
+}
+
+async function seedMovies() {
+  await MovieModel.deleteMany({});
+
+  const now = new Date();
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
+
+  const movies = [
+    {
+      title: 'Neon Prophecy',
+      originalTitle: 'Neon Prophecy',
+      description: 'In a dystopian megacity, a rogue detective uncovers a conspiracy threatening the last free city on Earth.',
+      shortDescription: 'Dystopian sci-fi thriller',
+      thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1200&h=600&fit=crop&q=80',
+      posterImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=900&fit=crop&q=80',
+      trailerUrl: 'https://example.com/trailer/neon-prophecy.mp4',
+      genres: [],
+      categories: [],
+      languages: [],
+      subtitleLanguages: [],
+      audioLanguages: [],
+      year: 2024,
+      rating: 'TV-MA',
+      ageRating: 17,
+      duration: 7560,
+      releaseDate: daysAgo(60),
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/neon-prophecy/master.m3u8',
+      views: 1847293,
+      likes: 98765,
+      shares: 23456,
+      featured: true,
+      trending: true,
+      isNewContent: true,
+      isExclusive: true,
+      downloadAllowed: true,
+      sections: ['featured', 'trending', 'top-rated'],
+      cast: [],
+      crew: [],
+      director: 'Alex Rivera',
+      producer: 'John Smith',
+      studio: 'StreamVault Originals',
+      country: 'USA',
+      tags: ['dystopian', 'cyberpunk', 'original'],
+      imdbRating: 8.2,
+      maturityContent: ['Violence', 'Strong Language'],
+      planRequired: 'free',
+      createdAt: daysAgo(90),
+      updatedAt: daysAgo(85),
+    },
+    {
+      title: 'The Last Heist',
+      originalTitle: 'The Last Heist',
+      description: 'A legendary thief comes out of retirement for one final job that goes catastrophically wrong.',
+      shortDescription: 'Heist thriller',
+      thumbnail: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1478720568477-152d9b164e63?w=1200&h=600&fit=crop&q=80',
+      posterImage: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600&h=900&fit=crop&q=80',
+      genres: [],
+      categories: [],
+      languages: [],
+      subtitleLanguages: [],
+      audioLanguages: [],
+      year: 2024,
+      rating: 'TV-14',
+      ageRating: 14,
+      duration: 6840,
+      releaseDate: daysAgo(45),
+      status: 'published',
+      hlsUrl: 'https://example.com/hls/the-last-heist/master.m3u8',
+      views: 2341120,
+      likes: 123456,
+      shares: 34567,
+      featured: false,
+      trending: true,
+      isNewContent: true,
+      isExclusive: false,
+      downloadAllowed: true,
+      sections: ['trending', 'top-rated'],
+      cast: [],
+      crew: [],
+      director: 'Sarah Kim',
+      imdbRating: 7.8,
+      tags: ['heist', 'crime'],
+      planRequired: 'free',
+      createdAt: daysAgo(60),
+      updatedAt: daysAgo(55),
+    },
+    {
+      title: 'Echoes of Tomorrow',
+      originalTitle: 'Echoes of Tomorrow',
+      description: 'A quantum physicist accidentally fragments the timeline and must repair reality before it collapses.',
+      shortDescription: 'Time travel sci-fi',
+      thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&h=600&fit=crop&q=80',
+      bannerImage: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=1200&h=600&fit=crop&q=80',
+      posterImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&h=900&fit=crop&q=80',
+      genres: [],
+      categories: [],
+      languages: [],
+      subtitleLanguages: [],
+      audioLanguages: [],
+      year: 2024,
+      rating: 'PG-13',
+      ageRating: 13,
+      duration: 8100,
+      releaseDate: daysAgo(10),
+      status: 'published',
+      views: 123456,
+      likes: 45678,
+      shares: 12345,
+      featured: false,
+      trending: false,
+      isNewContent: true,
+      isExclusive: true,
+      downloadAllowed: false,
+      sections: ['new-releases'],
+      cast: [],
+      crew: [],
+      imdbRating: 7.5,
+      tags: ['time-travel', 'quantum'],
+      planRequired: 'standard',
+      createdAt: daysAgo(14),
+      updatedAt: daysAgo(2),
+    },
+  ];
+
+  await MovieModel.insertMany(movies);
+  logger.info('Seeded sample movies');
+}
+
+async function seedEpisodes() {
+  await EpisodeModel.deleteMany({});
+
+  const content = await ContentModel.find().lean();
+  if (!content.length) return;
+
+  const episodes = [];
+  
+  for (const item of content) {
+    if (item.type === 'series') {
+      const numEpisodes = 10;
+      for (let i = 1; i <= numEpisodes; i++) {
+        episodes.push({
+          contentId: item._id,
+          title: `Episode ${i}`,
+          description: `Description for episode ${i} of ${item.title}`,
+          thumbnail: 'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=400&h=225&fit=crop&q=80',
+          duration: 1200,
+          season: 1,
+          episode: i,
+          isFree: true,
+          isLocked: false,
+          hlsUrl: `https://example.com/hls/${item.title.toLowerCase().replace(/ /g, '-')}/ep${i}/master.m3u8`,
+          views: Math.floor(Math.random() * 1000000),
+          downloadAllowed: false,
+          subtitleLanguages: [],
+          audioLanguages: [],
+          processingStatus: 'ready' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+  }
+
+  await EpisodeModel.insertMany(episodes);
+  logger.info('Seeded sample episodes');
+}
+
+async function seedBanners() {
+  await BannerModel.deleteMany({});
+
+  const content = await ContentModel.find().lean();
+  const movies = await MovieModel.find().lean();
+
+  const allContent = [...content, ...movies];
+
+  const banners = [
+    // Both tabs
+    {
+      title: 'Welcome to Kotibox OTT',
+      subtitle: 'Stream the best content',
+      description: 'Watch thousands of shows and movies',
+      imageUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&h=600&fit=crop&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=400&fit=crop&q=80',
+      ctaText: 'Start Watching',
+      ctaLink: '/home',
+      contentId: allContent.length > 0 ? allContent[0]._id : undefined,
+      type: 'hero',
+      contentType: 'both',
+      position: 1,
+      isActive: true,
+      targetPlatforms: ['web', 'mobile', 'tv'],
+      backgroundColor: '#000000',
+      textColor: '#ffffff',
+    },
+    // Drama tabs
+    {
+      title: 'CEO Billionaire',
+      subtitle: 'New episodes every week',
+      description: 'Watch the latest episodes',
+      imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&h=600&fit=crop&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=400&fit=crop&q=80',
+      ctaText: 'Watch Now',
+      ctaLink: '/show/ceo-billionaire',
+      contentId: content.length > 0 ? content[0]._id : undefined,
+      type: 'featured',
+      contentType: 'drama',
+      position: 1,
+      isActive: true,
+      targetPlatforms: ['web', 'mobile', 'tv'],
+    },
+    {
+      title: 'Love Affairs',
+      subtitle: 'Now Streaming',
+      description: 'Binge watch all episodes',
+      imageUrl: 'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=1200&h=600&fit=crop&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1516571748831-5d81767b788d?w=800&h=400&fit=crop&q=80',
+      ctaText: 'Binge Now',
+      type: 'featured',
+      contentType: 'drama',
+      position: 2,
+      isActive: true,
+      targetPlatforms: ['web', 'mobile'],
+    },
+    // Movie tabs
+    {
+      title: 'Neon Prophecy',
+      subtitle: 'StreamVault Original',
+      description: 'Watch now',
+      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&h=600&fit=crop&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&h=400&fit=crop&q=80',
+      ctaText: 'Play Now',
+      contentId: movies.length > 0 ? movies[0]._id : undefined,
+      type: 'featured',
+      contentType: 'movie',
+      position: 1,
+      isActive: true,
+      targetPlatforms: ['web', 'mobile', 'tv'],
+    },
+    {
+      title: 'New Movies',
+      subtitle: 'Check out latest releases',
+      description: 'Fresh movies every month',
+      imageUrl: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1200&h=600&fit=crop&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800&h=400&fit=crop&q=80',
+      ctaText: 'Explore',
+      type: 'promotional',
+      contentType: 'movie',
+      position: 2,
+      isActive: true,
+      targetPlatforms: ['web', 'mobile'],
+    },
+  ];
+
+  await BannerModel.insertMany(banners);
+  logger.info('Seeded sample banners');
 }
 
 async function seedNotificationTemplates() {
@@ -405,10 +819,19 @@ export async function seedDatabase(): Promise<void> {
       seedCategories(),
       seedLanguages(),
       seedAdminUsers(),
-      seedSampleContent(),
+    ]);
+    
+    // Seed content in order
+    await seedSampleContent();
+    await seedMovies();
+    await seedEpisodes();
+    await seedBanners();
+    
+    await Promise.all([
       seedNotificationTemplates(),
       seedNotifications(),
     ]);
+    
     logger.info('Database seeding complete');
   } catch (err) {
     logger.error({ err }, 'Database seeding failed');
