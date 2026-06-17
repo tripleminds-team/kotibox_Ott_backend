@@ -91,17 +91,18 @@ async function seedCategories() {
   const count = await CategoryModel.countDocuments();
   if (count > 0) return;
 
+  // All categories are drama subcategories — distinct names, no overlap.
   const categories = [
-    { name: 'Action', slug: 'action', color: '#ef4444', contentCount: 18, order: 1, isFeatured: true },
-    { name: 'Drama', slug: 'drama', color: '#8b5cf6', contentCount: 24, order: 2, isFeatured: true },
-    { name: 'Sci-Fi', slug: 'sci-fi', color: '#3b82f6', contentCount: 16, order: 3, isFeatured: true },
-    { name: 'Thriller', slug: 'thriller', color: '#f59e0b', contentCount: 21, order: 4, isFeatured: false },
-    { name: 'Comedy', slug: 'comedy', color: '#10b981', contentCount: 11, order: 5, isFeatured: false },
-    { name: 'Horror', slug: 'horror', color: '#dc2626', contentCount: 9, order: 6, isFeatured: false },
-    { name: 'Romance', slug: 'romance', color: '#ec4899', contentCount: 7, order: 7, isFeatured: false },
-    { name: 'Crime', slug: 'crime', color: '#6b7280', contentCount: 14, order: 8, isFeatured: false },
-    { name: 'Documentary', slug: 'documentary', color: '#0ea5e9', contentCount: 6, order: 9, isFeatured: false },
-    { name: 'Sports', slug: 'sports', color: '#22c55e', contentCount: 4, order: 10, isFeatured: false },
+    { name: 'Family Drama', slug: 'family-drama', color: '#ef4444', contentCount: 18, order: 1, isFeatured: true },
+    { name: 'Romance Drama', slug: 'romance-drama', color: '#8b5cf6', contentCount: 24, order: 2, isFeatured: true },
+    { name: 'Crime Drama', slug: 'crime-drama', color: '#3b82f6', contentCount: 16, order: 3, isFeatured: true },
+    { name: 'Thriller Drama', slug: 'thriller-drama', color: '#f59e0b', contentCount: 21, order: 4, isFeatured: false },
+    { name: 'Comedy Drama', slug: 'comedy-drama', color: '#10b981', contentCount: 11, order: 5, isFeatured: false },
+    { name: 'Horror Drama', slug: 'horror-drama', color: '#dc2626', contentCount: 9, order: 6, isFeatured: false },
+    { name: 'Historical Drama', slug: 'historical-drama', color: '#ec4899', contentCount: 7, order: 7, isFeatured: false },
+    { name: 'Legal Drama', slug: 'legal-drama', color: '#6b7280', contentCount: 14, order: 8, isFeatured: false },
+    { name: 'Medical Drama', slug: 'medical-drama', color: '#0ea5e9', contentCount: 6, order: 9, isFeatured: false },
+    { name: 'Sports Drama', slug: 'sports-drama', color: '#22c55e', contentCount: 4, order: 10, isFeatured: false },
   ];
 
   await CategoryModel.insertMany(categories);
@@ -551,218 +552,223 @@ async function seedBanners() {
 async function seedSections() {
   await SectionModel.deleteMany({});
 
+  // Drama sections — each has a distinct, meaningful category label
+  // matching what the heading actually represents (no repeated "Featured" everywhere).
   const dramaSections = [
     { key: 'top-10-story-tv', title: 'Top 10 on Story TV', category: 'Top 10', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 1, isActive: true, layout: 'horizontal' },
-    { key: 'ceo-billionaire', title: 'CEO Billionaire', category: 'Featured', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true, layout: 'horizontal' },
+    { key: 'ceo-billionaire', title: 'CEO Billionaire', category: 'Romance Drama', contentType: 'drama', filter: { sections: 'ceo-billionaire' }, sortBy: { createdAt: -1 }, limit: 10, position: 2, isActive: true, layout: 'horizontal' },
     { key: 'just-launched', title: 'Just Launched', category: 'Recently Added', contentType: 'drama', filter: { isNewContent: true }, sortBy: { createdAt: -1 }, limit: 10, position: 3, isActive: true, layout: 'horizontal' },
-    { key: 'love-affairs', title: 'Love Affairs', category: 'Featured', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'horizontal' },
+    { key: 'love-affairs', title: 'Love Affairs', category: 'Romance Drama', contentType: 'drama', filter: { sections: 'love-affairs' }, sortBy: { views: -1 }, limit: 10, position: 4, isActive: true, layout: 'horizontal' },
     { key: 'binge-worthy', title: 'Binge Worthy Series', category: 'Trending', contentType: 'drama', filter: { sections: 'binge-worthy' }, sortBy: { views: -1 }, limit: 10, position: 5, isActive: true, layout: 'horizontal' },
-    { key: 'story-tv-specials', title: 'Story TV Specials', category: 'Featured', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true, layout: 'horizontal' },
-    { key: 'top-10-new-releases', title: 'Top 10 New Releases', category: 'Top 10', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true, layout: 'horizontal' },
+    { key: 'story-tv-specials', title: 'Story TV Specials', category: 'Specials', contentType: 'drama', filter: { sections: 'story-tv-specials' }, sortBy: { views: -1 }, limit: 10, position: 6, isActive: true, layout: 'horizontal' },
+    { key: 'top-10-new-releases', title: 'Top 10 New Releases', category: 'New Releases', contentType: 'drama', filter: { isNewContent: true }, sortBy: { views: -1 }, limit: 10, position: 7, isActive: true, layout: 'horizontal' },
     { key: 'top-dramas', title: 'Top Dramas Of All Time', category: 'Top Rated', contentType: 'drama', sortBy: { views: -1 }, limit: 10, position: 8, isActive: true, layout: 'horizontal' },
-    { key: 'royal-affair', title: 'Royal Affair', category: 'Featured', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true, layout: 'horizontal' },
-    { key: 'mystery-mansion', title: 'Mystery Mansion', category: 'Featured', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true, layout: 'horizontal' },
-    { key: 'small-town-dreams', title: 'Small Town Dreams', category: 'Featured', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true, layout: 'horizontal' },
-    { key: 'college-days', title: 'College Days', category: 'Featured', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true, layout: 'horizontal' },
-    { key: 'crime-patrol', title: 'Crime Patrol', category: 'Featured', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true, layout: 'horizontal' },
-    { key: 'love-in-paris', title: 'Love in Paris', category: 'Featured', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true, layout: 'horizontal' },
-    { key: 'the-heist', title: 'The Heist', category: 'Featured', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true, layout: 'horizontal' },
-    { key: 'family-secrets', title: 'Family Secrets', category: 'Featured', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true, layout: 'horizontal' },
-    { key: 'all-dramas', title: 'All Dramas', category: 'All', contentType: 'drama', sortBy: { views: -1 }, limit: 50, position: 100, isActive: true, layout: 'vertical' },
+    { key: 'royal-affair', title: 'Royal Affair', category: 'Historical Drama', contentType: 'drama', filter: { sections: 'royal-affair' }, sortBy: { views: -1 }, limit: 10, position: 9, isActive: true, layout: 'horizontal' },
+    { key: 'mystery-mansion', title: 'Mystery Mansion', category: 'Thriller Drama', contentType: 'drama', filter: { sections: 'mystery-mansion' }, sortBy: { views: -1 }, limit: 10, position: 10, isActive: true, layout: 'horizontal' },
+    { key: 'small-town-dreams', title: 'Small Town Dreams', category: 'Family Drama', contentType: 'drama', filter: { sections: 'small-town-dreams' }, sortBy: { views: -1 }, limit: 10, position: 11, isActive: true, layout: 'horizontal' },
+    { key: 'college-days', title: 'College Days', category: 'Coming Of Age', contentType: 'drama', filter: { sections: 'college-days' }, sortBy: { views: -1 }, limit: 10, position: 12, isActive: true, layout: 'horizontal' },
+    { key: 'crime-patrol', title: 'Crime Patrol', category: 'Crime Drama', contentType: 'drama', filter: { sections: 'crime-patrol' }, sortBy: { views: -1 }, limit: 10, position: 13, isActive: true, layout: 'horizontal' },
+    { key: 'love-in-paris', title: 'Love in Paris', category: 'Romance Drama', contentType: 'drama', filter: { sections: 'love-in-paris' }, sortBy: { views: -1 }, limit: 10, position: 14, isActive: true, layout: 'horizontal' },
+    { key: 'the-heist', title: 'The Heist', category: 'Crime Drama', contentType: 'drama', filter: { sections: 'the-heist' }, sortBy: { views: -1 }, limit: 10, position: 15, isActive: true, layout: 'horizontal' },
+    { key: 'family-secrets', title: 'Family Secrets', category: 'Family Drama', contentType: 'drama', filter: { sections: 'family-secrets' }, sortBy: { views: -1 }, limit: 10, position: 16, isActive: true, layout: 'horizontal' },
+    // Vertical "all" listing — category renamed from "All" to "All Drama"
+    { key: 'all-dramas', title: 'All Dramas', category: 'All Drama', contentType: 'drama', sortBy: { views: -1 }, limit: 50, position: 100, isActive: true, layout: 'vertical' },
   ];
 
+  // Movie sections — each has a distinct, meaningful category label too.
   const movieSections = [
-  {
-    key: 'featured-movies',
-    title: 'Featured Movies',
-    category: 'Featured',
-    contentType: 'movie',
-    filter: { featured: true },
-    sortBy: { createdAt: -1 },
-    limit: 10,
-    position: 1,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'neon-prophecy',
-    title: 'Neon Prophecy',
-    category: 'Featured',
-    contentType: 'movie',
-    filter: { sections: 'neon-prophecy' },
-    sortBy: { createdAt: -1 },
-    limit: 10,
-    position: 2,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'trending-now',
-    title: 'Trending Now',
-    category: 'Trending',
-    contentType: 'movie',
-    filter: { trending: true },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 3,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'new-releases',
-    title: 'New Releases',
-    category: 'Recently Added',
-    contentType: 'movie',
-    filter: { isNewContent: true },
-    sortBy: { createdAt: -1 },
-    limit: 10,
-    position: 4,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'top-rated-movies',
-    title: 'Top Rated Movies',
-    category: 'Top Rated',
-    contentType: 'movie',
-    sortBy: { imdbRating: -1 },
-    limit: 10,
-    position: 5,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'action-hits',
-    title: 'Action Hits',
-    category: 'Action',
-    contentType: 'movie',
-    filter: { sections: 'action-hits' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 6,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'romance-movies',
-    title: 'Romance Movies',
-    category: 'Romance',
-    contentType: 'movie',
-    filter: { sections: 'romance-movies' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 7,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'thriller-zone',
-    title: 'Thriller Zone',
-    category: 'Thriller',
-    contentType: 'movie',
-    filter: { sections: 'thriller-zone' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 8,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'sci-fi-universe',
-    title: 'Sci-Fi Universe',
-    category: 'Sci-Fi',
-    contentType: 'movie',
-    filter: { sections: 'sci-fi-universe' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 9,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'crime-movies',
-    title: 'Crime Movies',
-    category: 'Crime',
-    contentType: 'movie',
-    filter: { sections: 'crime-movies' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 10,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'comedy-time',
-    title: 'Comedy Time',
-    category: 'Comedy',
-    contentType: 'movie',
-    filter: { sections: 'comedy-time' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 11,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'the-last-heist',
-    title: 'The Last Heist',
-    category: 'Featured',
-    contentType: 'movie',
-    filter: { sections: 'the-last-heist' },
-    sortBy: { createdAt: -1 },
-    limit: 10,
-    position: 12,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'blockbusters',
-    title: 'Blockbusters',
-    category: 'Blockbuster',
-    contentType: 'movie',
-    filter: { sections: 'blockbusters' },
-    sortBy: { views: -1 },
-    limit: 10,
-    position: 13,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'award-winners',
-    title: 'Award Winners',
-    category: 'Top Rated',
-    contentType: 'movie',
-    filter: { sections: 'award-winners' },
-    sortBy: { imdbRating: -1 },
-    limit: 10,
-    position: 14,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'hidden-gems',
-    title: 'Hidden Gems',
-    category: 'Featured',
-    contentType: 'movie',
-    filter: { sections: 'hidden-gems' },
-    sortBy: { createdAt: -1 },
-    limit: 10,
-    position: 15,
-    isActive: true,
-    layout: 'horizontal'
-  },
-  {
-    key: 'all-movies',
-    title: 'All Movies',
-    category: 'All',
-    contentType: 'movie',
-    sortBy: { views: -1 },
-    limit: 50,
-    position: 100,
-    isActive: true,
-    layout: 'vertical'
-  }
-];
+    {
+      key: 'featured-movies',
+      title: 'Featured Movies',
+      category: 'Featured',
+      contentType: 'movie',
+      filter: { featured: true },
+      sortBy: { createdAt: -1 },
+      limit: 10,
+      position: 1,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'neon-prophecy',
+      title: 'Neon Prophecy',
+      category: 'Sci-Fi',
+      contentType: 'movie',
+      filter: { sections: 'neon-prophecy' },
+      sortBy: { createdAt: -1 },
+      limit: 10,
+      position: 2,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'trending-now',
+      title: 'Trending Now',
+      category: 'Trending',
+      contentType: 'movie',
+      filter: { trending: true },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 3,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'new-releases',
+      title: 'New Releases',
+      category: 'New Releases',
+      contentType: 'movie',
+      filter: { isNewContent: true },
+      sortBy: { createdAt: -1 },
+      limit: 10,
+      position: 4,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'top-rated-movies',
+      title: 'Top Rated Movies',
+      category: 'Top Rated',
+      contentType: 'movie',
+      sortBy: { imdbRating: -1 },
+      limit: 10,
+      position: 5,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'action-hits',
+      title: 'Action Hits',
+      category: 'Action',
+      contentType: 'movie',
+      filter: { sections: 'action-hits' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 6,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'romance-movies',
+      title: 'Romance Movies',
+      category: 'Romance',
+      contentType: 'movie',
+      filter: { sections: 'romance-movies' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 7,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'thriller-zone',
+      title: 'Thriller Zone',
+      category: 'Thriller',
+      contentType: 'movie',
+      filter: { sections: 'thriller-zone' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 8,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'sci-fi-universe',
+      title: 'Sci-Fi Universe',
+      category: 'Sci-Fi',
+      contentType: 'movie',
+      filter: { sections: 'sci-fi-universe' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 9,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'crime-movies',
+      title: 'Crime Movies',
+      category: 'Crime',
+      contentType: 'movie',
+      filter: { sections: 'crime-movies' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 10,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'comedy-time',
+      title: 'Comedy Time',
+      category: 'Comedy',
+      contentType: 'movie',
+      filter: { sections: 'comedy-time' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 11,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'the-last-heist',
+      title: 'The Last Heist',
+      category: 'Crime',
+      contentType: 'movie',
+      filter: { sections: 'the-last-heist' },
+      sortBy: { createdAt: -1 },
+      limit: 10,
+      position: 12,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'blockbusters',
+      title: 'Blockbusters',
+      category: 'Blockbuster',
+      contentType: 'movie',
+      filter: { sections: 'blockbusters' },
+      sortBy: { views: -1 },
+      limit: 10,
+      position: 13,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'award-winners',
+      title: 'Award Winners',
+      category: 'Award Winning',
+      contentType: 'movie',
+      filter: { sections: 'award-winners' },
+      sortBy: { imdbRating: -1 },
+      limit: 10,
+      position: 14,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    {
+      key: 'hidden-gems',
+      title: 'Hidden Gems',
+      category: 'Hidden Gems',
+      contentType: 'movie',
+      filter: { sections: 'hidden-gems' },
+      sortBy: { createdAt: -1 },
+      limit: 10,
+      position: 15,
+      isActive: true,
+      layout: 'horizontal'
+    },
+    // Vertical "all" listing — category renamed from "All" to "All Movies"
+    {
+      key: 'all-movies',
+      title: 'All Movies',
+      category: 'All Movies',
+      contentType: 'movie',
+      sortBy: { views: -1 },
+      limit: 50,
+      position: 100,
+      isActive: true,
+      layout: 'vertical'
+    }
+  ];
 
   await SectionModel.insertMany([...dramaSections, ...movieSections]);
   logger.info('Seeded sample sections');

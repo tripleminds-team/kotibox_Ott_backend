@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ContentModel } from '../models/Content';
+import { MovieModel } from '../models/Movie';
 import { EpisodeModel } from '../models/Episode';
 import { logger } from '../lib/logger';
 
@@ -38,17 +39,24 @@ const mapContentItem = (item: any, type: string, episodeCount = 0, firstEpisode?
 export const getExplore = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const query = request.query as {
-      page?: string;
+      offset?: string;
       limit?: string;
       sort?: 'new' | 'trending' | 'views' | 'featured';
+      contentType?: 'drama' | 'movie';
     };
 
-    const page = Math.max(1, Number(query.page || 1));
-    const limit = Math.min(50, Math.max(5, Number(query.limit || 10)));
+    const offset = Math.max(0, Number(query.offset || 0));
+    const limit = Math.min(10, Math.max(1, Number(query.limit || 1)));
     const sort = query.sort || 'new';
+    const contentType = query.contentType || 'drama';
 
     let sortBy = {};
-    let filter: any = { status: 'published', contentType: 'drama' };
+    let filter: any = { status: 'published' };
+
+    // Add contentType filter for dramas
+    if (contentType === 'drama') {
+      filter.contentType = 'drama';
+    }
 
     // Determine sorting
     switch (sort) {
@@ -70,64 +78,74 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
         sortBy = { createdAt: -1 };
     }
 
-    const skip = (page - 1) * limit;
+    const skip = offset;
 
-    // Fetch total count and data
-    const [total, contents] = await Promise.all([
-      ContentModel.countDocuments(filter),
-      ContentModel.find(filter)
+    // Fetch data based on contentType
+    let contents: any[] = [];
+
+    if (contentType === 'movie') {
+      // Fetch movies
+      contents = await MovieModel.find(filter)
         .sort(sortBy)
         .skip(skip)
         .limit(limit)
-        .exec(),
-    ]);
+        .lean();
+    } else {
+      // Fetch dramas (default)
+      contents = await ContentModel.find(filter)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(limit)
+        .lean();
+    }
 
-    logger.info({ filter, sortBy, total, contentsLength: contents.length }, 'Explore API query results');
+    logger.info({ contentType, filter, sortBy, offset, limit, contentsLength: contents.length }, 'Explore API query results');
 
-    // Get first episodes for each content (for reels video)
-    const contentIds = contents.map(c => c._id);
-    const episodes = await EpisodeModel.aggregate([
-      { $match: { contentId: { $in: contentIds }, season: 1, episode: 1, processingStatus: 'ready' } },
-      { $sort: { season: 1, episode: 1 } },
-    ]);
+    // Get first episodes for each content (for reels video) - only for dramas
+    let firstEpisodeMap = new Map();
+    let episodeCountMap = new Map();
 
-    const firstEpisodeMap = new Map();
-    episodes.forEach(e => {
-      firstEpisodeMap.set(e.contentId.toString(), e);
-    });
+    if (contentType === 'drama') {
+      const contentIds = contents.map(c => c._id);
+      const episodes = await EpisodeModel.aggregate([
+        { $match: { contentId: { $in: contentIds }, season: 1, episode: 1, processingStatus: 'ready' } },
+        { $sort: { season: 1, episode: 1 } },
+      ]);
 
-    // Get episode counts
-    const episodeCounts = await EpisodeModel.aggregate([
-      { $match: { contentId: { $in: contentIds } } },
-      { $group: { _id: '$contentId', count: { $sum: 1 } } },
-    ]);
+      episodes.forEach(e => {
+        firstEpisodeMap.set(e.contentId.toString(), e);
+      });
 
-    const episodeCountMap = new Map();
-    episodeCounts.forEach(e => {
-      episodeCountMap.set(e._id.toString(), e.count);
-    });
+      // Get episode counts
+      const episodeCounts = await EpisodeModel.aggregate([
+        { $match: { contentId: { $in: contentIds } } },
+        { $group: { _id: '$contentId', count: { $sum: 1 } } },
+      ]);
+
+      episodeCounts.forEach(e => {
+        episodeCountMap.set(e._id.toString(), e.count);
+      });
+    }
 
     // Map the data
     const items = contents.map(content => {
-      const episodeCount = episodeCountMap.get(content._id.toString()) || 0;
-      const firstEpisode = firstEpisodeMap.get(content._id.toString());
-      return mapContentItem(content, content.type || 'series', episodeCount, firstEpisode);
+      if (contentType === 'movie') {
+        // Map movie item
+        return mapContentItem(content, 'movie', 0, undefined);
+      } else {
+        // Map drama item
+        const episodeCount = episodeCountMap.get(content._id.toString()) || 0;
+        const firstEpisode = firstEpisodeMap.get(content._id.toString());
+        return mapContentItem(content, content.type || 'series', episodeCount, firstEpisode);
+      }
     });
-
-    const totalPages = Math.ceil(total / limit);
-    const hasNextPage = page < totalPages;
 
     reply.send({
       success: true,
       data: {
         items,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNextPage,
-        },
+        nextOffset: offset + items.length,
+        hasMore: items.length === limit,
       },
     });
   } catch (error: any) {

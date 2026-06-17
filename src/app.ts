@@ -18,7 +18,7 @@ const fastify = Fastify({
 
 // Enable compression for faster responses
 fastify.register(fastifyCompress, {
-  global: true,
+  global: false,
   encodings: ['gzip', 'deflate', 'br']
 });
 
