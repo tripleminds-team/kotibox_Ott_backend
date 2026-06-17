@@ -438,13 +438,13 @@ async function seedEpisodes() {
           duration: 1200 + Math.floor(Math.random() * 600), // 20-30 minutes
           season: 1,
           episode: i,
-          isFree: i <= 3, // First 3 free
-          isLocked: i > 3,
+          isFree: i <= 2, // First 2 free
+          isLocked: i > 2,
           hlsUrl: `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`, // Public test stream URL
           views: Math.floor(Math.random() * 1000000),
           likes: Math.floor(Math.random() * 50000),
           shares: Math.floor(Math.random() * 10000),
-          downloadAllowed: i <= 3,
+          downloadAllowed: i <= 2,
           subtitleLanguages: ['Hindi', 'English'],
           audioLanguages: ['Hindi'],
           processingStatus: 'ready' as const,
