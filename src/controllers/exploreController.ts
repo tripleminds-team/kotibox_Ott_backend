@@ -204,10 +204,10 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
       if (contentType === 'drama' && !videoUrl) continue;
 
       // Skip if thumbnail is duplicate
-      if (thumbnail && seenThumbnails.has(thumbnail)) continue;
+      // if (thumbnail && seenThumbnails.has(thumbnail)) continue;
 
       // Skip if video URL is duplicate
-      if (videoUrl && seenVideoUrls.has(videoUrl)) continue;
+      // if (videoUrl && seenVideoUrls.has(videoUrl)) continue;
 
       // Mark as seen
       if (thumbnail) seenThumbnails.add(thumbnail);
