@@ -5,6 +5,8 @@ import { MovieModel } from '../models/Movie';
 import { EpisodeModel } from '../models/Episode';
 import { UserLikeModel } from '../models/UserLike';
 import { UserModel } from '../models/User';
+import '../models/Actor';
+import '../models/Director';
 import { logger } from '../lib/logger';
 
 // Plan hierarchy
