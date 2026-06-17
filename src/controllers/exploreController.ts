@@ -57,7 +57,7 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
         break;
       case 'trending':
         sortBy = { trending: -1, views: -1 };
-        filter = { ...filter, trending: true };
+        // Don't filter by trending flag, just sort by it
         break;
       case 'views':
         sortBy = { views: -1 };

@@ -1,6 +1,31 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { LanguageModel } from '../models/Language';
 import uploadHandler from '../lib/uploadHandler';
+import { SettingsModel } from '../models/Settings';
+
+// Helper function to get full image URL
+async function getImageUrl(filePath: string | null | undefined): Promise<string | null> {
+  if (!filePath) return null;
+  
+  if (filePath.startsWith('http')) return filePath;
+  
+  // Get S3 settings from database
+  const settings = await SettingsModel.findOne();
+  const storageDriver = settings?.storageDriver || 'local';
+  const bucket = settings?.awsBucket || process.env.AWS_S3_BUCKET_NAME || 'tripleminds-ott-admin';
+  const region = settings?.awsRegion || process.env.AWS_S3_REGION || 'eu-north-1';
+  const pathStyle = settings?.awsPathStyleEndpoint || false;
+  
+  if (storageDriver === 's3' && bucket) {
+    const publicUrl = pathStyle 
+      ? `https://s3.${region}.amazonaws.com/${bucket}/${filePath}`
+      : `https://${bucket}.s3.${region}.amazonaws.com/${filePath}`;
+    return publicUrl;
+  }
+  
+  // Fallback to local URL if S3 not configured
+  return `/uploads/${filePath.replace(/^\//, '')}`;
+}
 
 export const listLanguages = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -9,16 +34,16 @@ export const listLanguages = async (request: FastifyRequest, reply: FastifyReply
 
     const languages = await LanguageModel.find({ isActive: true }).sort({ order: 1, createdAt: -1 }).lean();
 
-    const filteredLanguages = languages.map(lang => ({
+    const filteredLanguages = await Promise.all(languages.map(async (lang) => ({
       id: lang._id.toString(),
       name: lang.name,
       code: lang.code,
-      image: lang.image,
+      image: await getImageUrl(lang.image),
       isActive: lang.isActive,
       order: lang.order,
       createdAt: lang.createdAt,
       updatedAt: lang.updatedAt
-    }));
+    })));
 
     const data = includeSkip
       ? [
@@ -66,7 +91,7 @@ export const getLanguage = async (request: FastifyRequest, reply: FastifyReply) 
         id: language._id.toString(),
         name: language.name,
         code: language.code,
-        image: language.image,
+        image: await getImageUrl(language.image),
         isActive: language.isActive,
         order: language.order,
         createdAt: language.createdAt,
@@ -113,7 +138,7 @@ export const createLanguage = async (request: FastifyRequest, reply: FastifyRepl
         id: language._id.toString(),
         name: language.name,
         code: language.code,
-        image: language.image,
+        image: await getImageUrl(language.image),
         isActive: language.isActive,
         order: language.order
       }
@@ -176,7 +201,7 @@ export const updateLanguage = async (request: FastifyRequest, reply: FastifyRepl
         id: language._id.toString(),
         name: language.name,
         code: language.code,
-        image: language.image,
+        image: await getImageUrl(language.image),
         isActive: language.isActive,
         order: language.order
       }
