@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { PageModel } from '../models/Page';
+import mongoose from 'mongoose';
 
 export const listPages = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -48,8 +49,19 @@ export const listPages = async (request: FastifyRequest, reply: FastifyReply) =>
 
 export const getPageById = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const { pageId } = request.params as { pageId: string };
-    const page = await PageModel.findById(pageId).lean();
+    const { pageId, slug } = request.params as { pageId?: string; slug?: string };
+    const identifier = pageId || slug;
+
+    if (!identifier) {
+      return reply.status(400).send({ success: false, error: 'Identifier (pageId or slug) is required' });
+    }
+
+    let page;
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+      page = await PageModel.findById(identifier).lean();
+    } else {
+      page = await PageModel.findOne({ slug: identifier, status: 'published' }).lean();
+    }
 
     if (!page) {
       return reply.status(404).send({ success: false, error: 'Page not found' });

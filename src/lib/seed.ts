@@ -20,6 +20,9 @@ import { GenreModel } from '../models/Genre';
 import { ActorModel } from '../models/Actor';
 import { DirectorModel } from '../models/Director';
 import { PageModel } from '../models/Page';
+import { UserModel } from '../models/User';
+import { UserDownloadModel } from '../models/UserDownload';
+import { UserWishlistModel } from '../models/UserWishlist';
 
 async function seedSubscriptionPlans() {
   const count = await SubscriptionPlanModel.countDocuments();
@@ -918,114 +921,337 @@ async function seedSections() {
 }
 
 async function seedNotificationTemplates() {
-  const count = await NotificationTemplateModel.countDocuments();
-  if (count > 0) return;
-
+  // Use upsert per type: new templates are inserted, existing customized ones are preserved
   const templates = [
+    // ── System / Auth ───────────────────────────────────────────────────────
     {
-      type: 'Change Password',
-      userType: 'user',
-      recipients: ['User', 'Admin', 'Demo Admin'],
-      status: true,
-      notifSubject: 'Your Password Has Been Changed',
-      notifTemplate: 'Hello [[ user_name ]], your password has been changed successfully for your account.',
-      emailSubject: 'Password Change Successful',
-      emailTemplate: 'Hello [[ user_name ]],\n\nYour password has been changed successfully.',
-    },
-    {
-      type: 'Continue Watch',
+      type: 'Registration',
       userType: 'user',
       recipients: ['User'],
       status: true,
-      notifSubject: 'Continue Watching',
-      notifTemplate: 'Hello [[ user_name ]], continue watching "[[ movie_name ]]".',
-      emailSubject: 'Continue Watching Reminder',
-      emailTemplate: 'Hello [[ user_name ]],\n\nYou haven\'t finished watching "[[ movie_name ]]".',
-    },
-    {
-      type: 'Episode Add',
-      userType: 'user',
-      recipients: ['User', 'Admin'],
-      status: true,
-      notifSubject: 'New Episode Added',
-      notifTemplate: 'Hello [[ user_name ]], a new episode [[ episode_name ]] has been added.',
-      emailSubject: 'New Episode Available',
-      emailTemplate: 'Hello [[ user_name ]],\n\nA new episode is now available: [[ episode_name ]].',
-    },
-    {
-      type: 'Expiry Plan',
-      userType: 'user',
-      recipients: ['User'],
-      status: true,
-      notifSubject: 'Subscription Plan Expiry Reminder',
-      notifTemplate: 'Your subscription plan "[[ plan_name ]]" will expire soon. Expiry date: [[ end_date ]].',
-      emailSubject: 'Your Subscription is Expiring Soon',
-      emailTemplate: 'Hello [[ user_name ]],\n\nYour subscription plan "[[ plan_name ]]" will expire on [[ end_date ]].',
+      notifSubject: 'Welcome! Your account is ready',
+      notifTemplate: 'Hello [[ user_name ]], welcome! Your account has been created successfully.',
+      emailSubject: 'Welcome to StreamVault 🎬',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Welcome to <strong>StreamVault</strong>! Your account has been created successfully.</p>` +
+        `<p style="margin:0 0 24px;color:#6b7280;">You can now sign in and start exploring thousands of movies, TV shows, and more.</p>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Start Watching</a>` +
+        `</div>` +
+        `<p style="color:#9ca3af;font-size:12px;margin-top:24px;">If you didn't create this account, please ignore this email or contact support.</p>`,
     },
     {
       type: 'Forget Email/Password',
       userType: 'user',
       recipients: ['User'],
       status: true,
-      notifSubject: 'Password Reset Request',
-      notifTemplate: 'Hello [[ user_name ]], your OTP code is [[ otp_code ]].',
-      emailSubject: 'Reset Your Password',
-      emailTemplate: 'Hello [[ user_name ]],\n\nYour password reset OTP is: [[ otp_code ]].\n\nThis OTP will expire in 10 minutes.',
+      notifSubject: 'Your password reset OTP is [[ otp_code ]]',
+      notifTemplate: 'Hello [[ user_name ]], your OTP code is [[ otp_code ]]. It expires in 10 minutes.',
+      emailSubject: 'Reset Your Password — OTP Code',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 20px;">We received a request to reset your password. Use the OTP code below:</p>` +
+        `<div style="background:#f8fafc;border:2px dashed #e2e8f0;border-radius:10px;padding:24px;margin:24px 0;text-align:center;">` +
+        `<p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:2px;">One-Time Password</p>` +
+        `<p style="margin:0;color:#ef4444;font-size:40px;font-weight:900;letter-spacing:10px;font-family:monospace;">[[ otp_code ]]</p>` +
+        `<p style="margin:10px 0 0;color:#9ca3af;font-size:12px;">This code expires in <strong>10 minutes</strong>.</p>` +
+        `</div>` +
+        `<p style="color:#6b7280;font-size:14px;">If you didn't request a password reset, you can safely ignore this email — your password won't be changed.</p>`,
     },
     {
-      type: 'Movie Add',
+      type: 'Change Password',
+      userType: 'user',
+      recipients: ['User'],
+      status: true,
+      notifSubject: 'Your password was changed',
+      notifTemplate: 'Hello [[ user_name ]], your password has been changed successfully.',
+      emailSubject: 'Password Changed Successfully',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Your password has been updated successfully.</p>` +
+        `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin:20px 0;">` +
+        `<p style="margin:0;color:#166534;font-size:14px;">✓ Password changed on [[ start_date ]]</p>` +
+        `</div>` +
+        `<p style="color:#6b7280;font-size:14px;">If you didn't make this change, please reset your password immediately and contact support.</p>`,
+    },
+    {
+      type: 'Email Verification',
+      userType: 'user',
+      recipients: ['User'],
+      status: true,
+      notifSubject: 'Verify your email address',
+      notifTemplate: 'Hello [[ user_name ]], your email verification OTP is [[ otp_code ]].',
+      emailSubject: 'Verify Your Email Address',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 20px;">Please verify your email address using the OTP code below:</p>` +
+        `<div style="background:#f8fafc;border:2px dashed #e2e8f0;border-radius:10px;padding:24px;margin:24px 0;text-align:center;">` +
+        `<p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:2px;">Verification Code</p>` +
+        `<p style="margin:0;color:#ef4444;font-size:40px;font-weight:900;letter-spacing:10px;font-family:monospace;">[[ otp_code ]]</p>` +
+        `<p style="margin:10px 0 0;color:#9ca3af;font-size:12px;">This code expires in <strong>10 minutes</strong>.</p>` +
+        `</div>` +
+        `<p style="color:#6b7280;font-size:14px;">If you didn't request this, please ignore this email.</p>`,
+    },
+    // ── Admin / RBAC ─────────────────────────────────────────────────────────
+    {
+      type: 'Admin Credentials',
+      userType: 'admin',
+      recipients: ['Admin', 'Demo Admin', 'Super Admin'],
+      status: true,
+      notifSubject: 'Your admin account credentials',
+      notifTemplate: 'Hello [[ user_name ]], your admin account has been created. Username: [[ user_id ]]',
+      emailSubject: 'Admin Account Created — Your Login Credentials',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 20px;">Your admin account has been created. Use the credentials below to sign in:</p>` +
+        `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<table style="width:100%;border-collapse:collapse;">` +
+        `<tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:13px;width:130px;">Username&nbsp;/&nbsp;Email</td>` +
+        `<td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;font-size:16px;">[[ user_id ]]</td></tr>` +
+        `<tr><td style="padding:10px 0;color:#6b7280;font-size:13px;">Password</td>` +
+        `<td style="padding:10px 0;color:#111827;font-weight:700;font-size:16px;font-family:monospace;letter-spacing:2px;">[[ user_password ]]</td></tr>` +
+        `</table>` +
+        `</div>` +
+        `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 18px;margin:16px 0;">` +
+        `<p style="margin:0;color:#c2410c;font-size:13px;">⚠ Please change your password immediately after your first login.</p>` +
+        `</div>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Login to Admin Panel</a>` +
+        `</div>` +
+        `<p style="color:#9ca3af;font-size:12px;">If you didn't expect this account, please contact your administrator immediately.</p>`,
+    },
+    {
+      type: 'Admin Password Reset',
+      userType: 'admin',
+      recipients: ['Admin', 'Demo Admin', 'Super Admin'],
+      status: true,
+      notifSubject: 'Your admin password has been reset',
+      notifTemplate: 'Hello [[ user_name ]], your admin password has been reset. Check your email for new credentials.',
+      emailSubject: 'Admin Password Reset — New Credentials',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 20px;">Your admin account password has been reset. Use the credentials below:</p>` +
+        `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<table style="width:100%;border-collapse:collapse;">` +
+        `<tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:13px;width:130px;">Username&nbsp;/&nbsp;Email</td>` +
+        `<td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;font-size:16px;">[[ user_id ]]</td></tr>` +
+        `<tr><td style="padding:10px 0;color:#6b7280;font-size:13px;">New Password</td>` +
+        `<td style="padding:10px 0;color:#ef4444;font-weight:700;font-size:16px;font-family:monospace;letter-spacing:2px;">[[ user_password ]]</td></tr>` +
+        `</table>` +
+        `</div>` +
+        `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 18px;margin:16px 0;">` +
+        `<p style="margin:0;color:#c2410c;font-size:13px;">⚠ Please change your password immediately after logging in.</p>` +
+        `</div>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Login to Admin Panel</a>` +
+        `</div>`,
+    },
+    {
+      type: 'RBAC Update',
+      userType: 'admin',
+      recipients: ['Admin', 'Demo Admin'],
+      status: true,
+      notifSubject: 'Your role/permissions have been updated',
+      notifTemplate: 'Hello [[ user_name ]], your account role has been updated to [[ your_position ]].',
+      emailSubject: 'Account Role Updated',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Your account role and permissions have been updated by an administrator.</p>` +
+        `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:20px 0;">` +
+        `<p style="margin:0 0 6px;color:#6b7280;font-size:13px;">New Role</p>` +
+        `<p style="margin:0;color:#111827;font-weight:700;font-size:18px;text-transform:capitalize;">[[ your_position ]]</p>` +
+        `</div>` +
+        `<p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your new permissions are now active. Please re-login if you are currently signed in.</p>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">View Admin Panel</a>` +
+        `</div>` +
+        `<p style="color:#9ca3af;font-size:12px;">If you believe this is an error, please contact your administrator.</p>`,
+    },
+    // ── Content ────────────────────────────────────────────────────────────
+    {
+      type: 'Content Approved',
       userType: 'user',
       recipients: ['User', 'Admin'],
       status: true,
-      notifSubject: 'New Movie Added',
-      notifTemplate: 'Hello [[ user_name ]], a new movie "[[ movie_name ]]" has been added.',
-      emailSubject: 'New Movie Available',
-      emailTemplate: 'Hello [[ user_name ]],\n\nA new movie "[[ movie_name ]]" is now available to watch.',
+      notifSubject: 'Your [[ content_type ]] has been approved',
+      notifTemplate: 'Hello [[ user_name ]], your [[ content_type ]] "[[ movie_name ]]" has been approved and is now live.',
+      emailSubject: 'Content Approved ✓',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Great news! Your <strong>[[ content_type ]]</strong> has been reviewed and approved.</p>` +
+        `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<p style="margin:0 0 4px;color:#6b7280;font-size:13px;">Content Name</p>` +
+        `<p style="margin:0;color:#166534;font-weight:700;font-size:18px;">[[ movie_name ]]</p>` +
+        `<p style="margin:8px 0 0;color:#166534;font-size:13px;">✓ Status: <strong>Live &amp; Published</strong></p>` +
+        `</div>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">View Dashboard</a>` +
+        `</div>`,
     },
+    {
+      type: 'Content Rejected',
+      userType: 'user',
+      recipients: ['User', 'Admin'],
+      status: true,
+      notifSubject: 'Your [[ content_type ]] needs attention',
+      notifTemplate: 'Hello [[ user_name ]], your [[ content_type ]] "[[ movie_name ]]" has been rejected.',
+      emailSubject: 'Content Rejected — Action Required',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Your <strong>[[ content_type ]]</strong> has been reviewed and requires changes before it can be published.</p>` +
+        `<div style="background:#fff7f7;border:1px solid #fecaca;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<p style="margin:0 0 4px;color:#6b7280;font-size:13px;">Content Name</p>` +
+        `<p style="margin:0 0 16px;color:#991b1b;font-weight:700;font-size:18px;">[[ movie_name ]]</p>` +
+        `<p style="margin:0 0 4px;color:#6b7280;font-size:13px;">Reason</p>` +
+        `<p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">[[ description_note ]]</p>` +
+        `</div>` +
+        `<p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Please update your content and resubmit for review.</p>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">View Dashboard</a>` +
+        `</div>`,
+    },
+    // ── Subscription ──────────────────────────────────────────────────────
     {
       type: 'New Subscription',
       userType: 'user',
-      recipients: ['User', 'Admin'],
+      recipients: ['User'],
       status: true,
-      notifSubject: 'Subscription Activated',
-      notifTemplate: 'Hello [[ user_name ]], your subscription to "[[ plan_name ]]" has been activated.',
-      emailSubject: 'Subscription Activated Successfully',
-      emailTemplate: 'Hello [[ user_name ]],\n\nYour [[ plan_name ]] subscription has been activated successfully.\n\nStart Date: [[ start_date ]]\nEnd Date: [[ end_date ]]',
+      notifSubject: 'Subscription activated — [[ plan_name ]]',
+      notifTemplate: 'Hello [[ user_name ]], your [[ plan_name ]] subscription is now active. Enjoy!',
+      emailSubject: 'Subscription Activated 🎉',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Your subscription has been activated. Here are your plan details:</p>` +
+        `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<table style="width:100%;border-collapse:collapse;">` +
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:13px;width:120px;">Plan</td>` +
+        `<td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;">[[ plan_name ]]</td></tr>` +
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:13px;">Start Date</td>` +
+        `<td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#111827;">[[ start_date ]]</td></tr>` +
+        `<tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">End Date</td>` +
+        `<td style="padding:8px 0;color:#111827;">[[ end_date ]]</td></tr>` +
+        `</table>` +
+        `</div>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Start Watching</a>` +
+        `</div>`,
     },
     {
-      type: 'Registration',
+      type: 'Expiry Plan',
       userType: 'user',
-      recipients: ['User', 'Admin'],
+      recipients: ['User'],
       status: true,
-      notifSubject: 'Welcome to StreamVault',
-      notifTemplate: 'Hello [[ user_name ]], welcome to StreamVault! Your account has been created successfully.',
-      emailSubject: 'Welcome to StreamVault',
-      emailTemplate: 'Hello [[ user_name ]],\n\nWelcome to StreamVault! Your account has been created successfully.\n\nStart exploring our vast library of content.',
+      notifSubject: 'Your subscription expires soon',
+      notifTemplate: 'Hello [[ user_name ]], your [[ plan_name ]] subscription expires on [[ end_date ]]. Renew now.',
+      emailSubject: 'Subscription Expiring Soon — Renew Now',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 16px;">Your subscription is about to expire. Renew now to avoid interruption.</p>` +
+        `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px 24px;margin:20px 0;">` +
+        `<table style="width:100%;border-collapse:collapse;">` +
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #fde8c8;color:#6b7280;font-size:13px;width:120px;">Plan</td>` +
+        `<td style="padding:8px 0;border-bottom:1px solid #fde8c8;color:#92400e;font-weight:700;">[[ plan_name ]]</td></tr>` +
+        `<tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Expires On</td>` +
+        `<td style="padding:8px 0;color:#c2410c;font-weight:700;">[[ end_date ]]</td></tr>` +
+        `</table>` +
+        `</div>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Renew Subscription</a>` +
+        `</div>`,
+    },
+    // ── Content Alerts ──────────────────────────────────────────────────────
+    {
+      type: 'Movie Add',
+      userType: 'user',
+      recipients: ['User'],
+      status: true,
+      notifSubject: 'New movie: [[ movie_name ]]',
+      notifTemplate: 'Hello [[ user_name ]], a new movie "[[ movie_name ]]" has been added.',
+      emailSubject: 'New Movie Available 🎬',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 8px;">A new movie has been added to our library:</p>` +
+        `<h2 style="margin:0 0 24px;color:#111827;font-size:22px;">[[ movie_name ]]</h2>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Watch Now</a>` +
+        `</div>`,
     },
     {
       type: 'TV Show Add',
       userType: 'user',
-      recipients: ['User', 'Admin'],
+      recipients: ['User'],
       status: false,
-      notifSubject: 'New TV Show Added',
+      notifSubject: 'New TV show: [[ tv_show_name ]]',
       notifTemplate: 'Hello [[ user_name ]], a new TV show "[[ tv_show_name ]]" has been added.',
       emailSubject: 'New TV Show Available',
-      emailTemplate: 'Hello [[ user_name ]],\n\nA new TV show "[[ tv_show_name ]]" is now available to watch.',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 8px;">A new TV show has been added:</p>` +
+        `<h2 style="margin:0 0 24px;color:#111827;font-size:22px;">[[ tv_show_name ]]</h2>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Watch Now</a>` +
+        `</div>`,
+    },
+    {
+      type: 'Episode Add',
+      userType: 'user',
+      recipients: ['User'],
+      status: true,
+      notifSubject: 'New episode: [[ episode_name ]]',
+      notifTemplate: 'Hello [[ user_name ]], a new episode [[ episode_name ]] is available.',
+      emailSubject: 'New Episode Available',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 8px;">A new episode is now available:</p>` +
+        `<h2 style="margin:0 0 24px;color:#111827;font-size:22px;">[[ episode_name ]]</h2>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Watch Now</a>` +
+        `</div>`,
     },
     {
       type: 'Video Add',
       userType: 'user',
-      recipients: ['User', 'Admin'],
+      recipients: ['User'],
       status: true,
-      notifSubject: 'New Video Added',
-      notifTemplate: 'Hello [[ user_name ]], a new video has been added.',
-      emailSubject: 'New Video Available',
-      emailTemplate: 'Hello [[ user_name ]],\n\nA new video is now available to watch.',
+      notifSubject: 'New content is available',
+      notifTemplate: 'Hello [[ user_name ]], new content has been added to the platform.',
+      emailSubject: 'New Content Available',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 24px;">New content has just been added to the platform. Check it out!</p>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Explore Now</a>` +
+        `</div>`,
+    },
+    {
+      type: 'Continue Watch',
+      userType: 'user',
+      recipients: ['User'],
+      status: true,
+      notifSubject: 'Continue watching [[ movie_name ]]',
+      notifTemplate: 'Hello [[ user_name ]], continue watching "[[ movie_name ]]" where you left off.',
+      emailSubject: 'Pick Up Where You Left Off',
+      emailTemplate:
+        `<p style="margin:0 0 16px;">Hello <strong>[[ user_name ]]</strong>,</p>` +
+        `<p style="margin:0 0 8px;">You haven't finished watching:</p>` +
+        `<h2 style="margin:0 0 24px;color:#111827;font-size:22px;">[[ movie_name ]]</h2>` +
+        `<div style="text-align:center;margin:28px 0;">` +
+        `<a href="[[ site_url ]]" style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;font-size:15px;display:inline-block;">Continue Watching</a>` +
+        `</div>`,
     },
   ];
 
-  await NotificationTemplateModel.insertMany(templates);
-  logger.info('Seeded notification templates');
+  let added = 0;
+  for (const template of templates) {
+    const result = await NotificationTemplateModel.updateOne(
+      { type: template.type },
+      { $setOnInsert: template },
+      { upsert: true }
+    );
+    if (result.upsertedCount > 0) added++;
+  }
+  if (added > 0) logger.info(`Seeded ${added} new notification templates`);
 }
 
 async function seedNotifications() {
@@ -1331,6 +1557,53 @@ async function seedPages() {
   logger.info('Seeded default pages (Privacy Policy, Terms, About, Contact, Help, Cookie Policy, Refund Policy)');
 }
 
+async function seedUserData() {
+  const users = await UserModel.find().lean();
+  if (users.length === 0) return;
+
+  const movie = await MovieModel.findOne({ status: 'published' }).lean();
+  const drama = await ContentModel.findOne({ type: 'series', status: 'published', contentType: 'drama' }).lean();
+  
+  if (!movie || !drama) return;
+
+  const episode = await EpisodeModel.findOne({ contentId: drama._id }).lean();
+
+  for (const user of users) {
+    const userId = user._id;
+
+    // Seed Movie download
+    await UserDownloadModel.findOneAndUpdate(
+      { userId, contentId: movie._id, episodeId: null },
+      { contentModelType: 'Movie' },
+      { upsert: true, new: true }
+    );
+
+    // Seed Episode download
+    if (episode) {
+      await UserDownloadModel.findOneAndUpdate(
+        { userId, contentId: drama._id, episodeId: episode._id },
+        { contentModelType: 'Content' },
+        { upsert: true, new: true }
+      );
+    }
+
+    // Seed Movie wishlist
+    await UserWishlistModel.findOneAndUpdate(
+      { userId, contentId: movie._id },
+      { contentModelType: 'Movie' },
+      { upsert: true, new: true }
+    );
+
+    // Seed Drama wishlist
+    await UserWishlistModel.findOneAndUpdate(
+      { userId, contentId: drama._id },
+      { contentModelType: 'Content' },
+      { upsert: true, new: true }
+    );
+  }
+  logger.info('Seeded user download and wishlist items for existing users');
+}
+
 export async function seedDatabase(): Promise<void> {
   try {
     await Promise.all([
@@ -1353,6 +1626,8 @@ export async function seedDatabase(): Promise<void> {
       seedNotifications(),
       seedPages(),
     ]);
+
+    await seedUserData();
 
     logger.info('Database seeding complete');
   } catch (err) {

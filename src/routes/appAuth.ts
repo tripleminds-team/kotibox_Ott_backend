@@ -16,6 +16,10 @@ const appAuthRoutes: FastifyPluginAsync = async (fastify) => {
   
   fastify.post('/app/auth/language/:userId', setPreferredLanguage);
   fastify.post('/app/auth/language/:userId/skip', skipPreferredLanguage);
+
+  // Mobile App compatibility routes
+  fastify.post('/app/users/:userId/language', setPreferredLanguage);
+  fastify.post('/app/users/:userId/language/skip', skipPreferredLanguage);
 };
 
 export default appAuthRoutes;

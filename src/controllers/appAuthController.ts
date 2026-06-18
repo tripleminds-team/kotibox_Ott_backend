@@ -5,6 +5,7 @@ import { LanguageModel } from '../models/Language';
 import { MessageCentralService } from '../services/messageCentralService';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { sendTemplateEmail } from '../lib/email';
 
 const messageCentralService = new MessageCentralService();
 const STATIC_OTP = '1234';
@@ -219,6 +220,11 @@ export const registerUser = async (request: FastifyRequest, reply: FastifyReply)
     const newProfile = { name, isKids: false, maturityLevel: 18, language: 'Hindi' };
     user = new UserModel({ email, passwordHash, name, profiles: [newProfile], preferredLanguage: 'Hindi', languageSelectionSkipped: false });
     await user.save();
+    // Send registration welcome email (non-blocking)
+    sendTemplateEmail('Registration', email, {
+      user_name: name,
+      site_url: process.env.FRONTEND_URL || process.env.ADMIN_PANEL_URL || 'http://localhost:5173',
+    }).catch((err) => console.error('[email] Registration email failed:', err));
     const server = request.server as any;
     const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' });
     return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), expiresIn: 604800 });
