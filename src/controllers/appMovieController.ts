@@ -51,6 +51,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
     // ── 2. User-specific flags (like + wishlist + watch progress + download) ───
     let isLikedByUser = false;
     let isWishlisted = false;
+    let wishlisted = false;
     let watchProgress = null;
     let downloaded = false;
     let isDownloaded = false;
@@ -64,6 +65,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
       ]);
       isLikedByUser = !!likeDoc;
       isWishlisted = !!wishlistDoc;
+      wishlisted = !!wishlistDoc;
       downloaded = !!downloadDoc;
       isDownloaded = !!downloadDoc;
       if (progressDoc) {
@@ -205,6 +207,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
         // User flags
         isLikedByUser,
         isWishlisted,
+        wishlisted,
         watchProgress,
         downloaded,
         isDownloaded,
