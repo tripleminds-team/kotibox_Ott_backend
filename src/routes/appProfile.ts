@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { getAppProfile, updateVideoQuality } from '../controllers/appProfileController';
+import { getAppProfile, updateVideoQuality, updatePreferredLanguage } from '../controllers/appProfileController';
 
 const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/app/profile
@@ -7,6 +7,9 @@ const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/app/profile/video-quality
   fastify.put('/profile/video-quality', updateVideoQuality);
+
+  // PUT /api/app/profile/language
+  fastify.put('/profile/language', updatePreferredLanguage);
 };
 
 export default appProfileRoutes;

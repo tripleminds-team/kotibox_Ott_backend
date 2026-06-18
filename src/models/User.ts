@@ -77,7 +77,7 @@ const UserSchema = new Schema<IUser>(
         lastSeen: { type: Date, default: Date.now },
       },
     ],
-    preferredLanguage: { type: String, default: 'English' },
+    preferredLanguage: { type: String, default: 'Hindi' },
     languageSelectionSkipped: { type: Boolean, default: false },
     preferredRegion: String,
     watchlistCount: { type: Number, default: 0 },

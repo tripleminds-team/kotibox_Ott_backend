@@ -1,8 +1,10 @@
-
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { UserModel } from '../models/User';
+import { LanguageModel } from '../models/Language';
 import { MessageCentralService } from '../services/messageCentralService';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const messageCentralService = new MessageCentralService();
 const STATIC_OTP = '1234';
@@ -42,7 +44,6 @@ export const sendOtp = async (request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(200).send(result);
   } catch (error) {
     console.error('Error sending OTP:', error);
-    console.error('Error stack:', (error as Error).stack);
     return reply.status(500).send({ 
       success: false, 
       message: 'Internal server error',
@@ -78,12 +79,14 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
         name: 'User',
         isKids: false,
         maturityLevel: 18,
+        language: 'Hindi',
       };
       user = new UserModel({
         phone: mobileNumber,
         name: 'User',
         email: `${mobileNumber}@temp.local`,
         profiles: [newProfile],
+        preferredLanguage: 'Hindi',
         languageSelectionSkipped: false,
       });
       await user.save();
@@ -100,7 +103,6 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
       phone: user.phone,
       role: 'user' as const,
     };
-    // Use MOBILE_JWT_EXPIRES_IN (7d) — separate from admin JWT_EXPIRES_IN (15m)
     const accessToken = server.jwt.sign(tokenPayload, {
       expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d',
     });
@@ -113,7 +115,6 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
     });
   } catch (error) {
     console.error('Error verifying OTP:', error);
-    console.error('Error stack:', (error as Error).stack);
     return reply.status(500).send({ 
       success: false, 
       message: 'Internal server error',
@@ -139,10 +140,23 @@ export const setPreferredLanguage = async (request: FastifyRequest, reply: Fasti
       return reply.status(404).send({ success: false, message: 'User not found' });
     }
 
-    user.preferredLanguage = body.data.language;
+    // Resolve language input robustly
+    let resolvedLanguage = body.data.language;
+    const langDoc = await LanguageModel.findOne({
+      $or: [
+        { name: new RegExp(`^${body.data.language}$`, 'i') },
+        { code: body.data.language.toLowerCase() },
+        ...(mongoose.Types.ObjectId.isValid(body.data.language) ? [{ _id: body.data.language }] : [])
+      ]
+    }).lean();
+    if (langDoc) {
+      resolvedLanguage = langDoc.name;
+    }
+
+    user.preferredLanguage = resolvedLanguage;
     user.languageSelectionSkipped = false;
     if (user.profiles.length > 0) {
-      user.profiles[0].language = body.data.language;
+      user.profiles[0].language = resolvedLanguage;
     }
     await user.save();
 
@@ -170,10 +184,10 @@ export const skipPreferredLanguage = async (request: FastifyRequest, reply: Fast
       return reply.status(404).send({ success: false, message: 'User not found' });
     }
 
-    user.preferredLanguage = undefined;
+    user.preferredLanguage = 'Hindi';
     user.languageSelectionSkipped = true;
     if (user.profiles.length > 0) {
-      user.profiles[0].language = undefined;
+      user.profiles[0].language = 'Hindi';
     }
     await user.save();
 
@@ -182,7 +196,7 @@ export const skipPreferredLanguage = async (request: FastifyRequest, reply: Fast
       message: 'Language selection skipped successfully',
       data: {
         userId: user._id.toString(),
-        preferredLanguage: null,
+        preferredLanguage: 'Hindi',
         languageSelectionSkipped: true,
       },
     });
@@ -192,13 +206,47 @@ export const skipPreferredLanguage = async (request: FastifyRequest, reply: Fast
   }
 };
 
-
-import bcrypt from 'bcryptjs';
-
 const registerSchema = z.object({ email: z.string().email(), password: z.string().min(6), name: z.string() });
 
-export const registerUser = async (request: FastifyRequest, reply: FastifyReply) => { try { const body = registerSchema.safeParse(request.body); if (!body.success) return reply.status(400).send({ success: false, message: 'Validation failed', errors: body.error.flatten().fieldErrors }); const { email, password, name } = body.data; let user = await UserModel.findOne({ email }); if (user) return reply.status(400).send({ success: false, message: 'User already exists' }); const passwordHash = await bcrypt.hash(password, 10); const newProfile = { name, isKids: false, maturityLevel: 18 }; user = new UserModel({ email, passwordHash, name, profiles: [newProfile], languageSelectionSkipped: false }); await user.save(); const server = request.server as any; const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' }); return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), expiresIn: 604800 }); } catch (error) { console.error('Register Error:', error); return reply.status(500).send({ success: false, message: 'Internal server error' }); } };
+export const registerUser = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const body = registerSchema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ success: false, message: 'Validation failed', errors: body.error.flatten().fieldErrors });
+    const { email, password, name } = body.data;
+    let user = await UserModel.findOne({ email });
+    if (user) return reply.status(400).send({ success: false, message: 'User already exists' });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newProfile = { name, isKids: false, maturityLevel: 18, language: 'Hindi' };
+    user = new UserModel({ email, passwordHash, name, profiles: [newProfile], preferredLanguage: 'Hindi', languageSelectionSkipped: false });
+    await user.save();
+    const server = request.server as any;
+    const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' });
+    return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), expiresIn: 604800 });
+  } catch (error) {
+    console.error('Register Error:', error);
+    return reply.status(500).send({ success: false, message: 'Internal server error' });
+  }
+};
 
 const loginSchema = z.object({ email: z.string().email(), password: z.string() });
 
-export const loginUser = async (request: FastifyRequest, reply: FastifyReply) => { try { const body = loginSchema.safeParse(request.body); if (!body.success) return reply.status(400).send({ success: false, message: 'Validation failed' }); const { email, password } = body.data; const user = await UserModel.findOne({ email }); if (!user || !user.passwordHash) return reply.status(401).send({ success: false, message: 'Invalid credentials' }); const valid = await bcrypt.compare(password, user.passwordHash); if (!valid) return reply.status(401).send({ success: false, message: 'Invalid credentials' }); user.lastLogin = new Date(); user.loginCount += 1; await user.save(); const server = request.server as any; const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' }); return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), expiresIn: 604800 }); } catch (error) { console.error('Login Error:', error); return reply.status(500).send({ success: false, message: 'Internal server error' }); } };
+export const loginUser = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const body = loginSchema.safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ success: false, message: 'Validation failed' });
+    const { email, password } = body.data;
+    const user = await UserModel.findOne({ email });
+    if (!user || !user.passwordHash) return reply.status(401).send({ success: false, message: 'Invalid credentials' });
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return reply.status(401).send({ success: false, message: 'Invalid credentials' });
+    user.lastLogin = new Date();
+    user.loginCount += 1;
+    await user.save();
+    const server = request.server as any;
+    const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' });
+    return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), expiresIn: 604800 });
+  } catch (error) {
+    console.error('Login Error:', error);
+    return reply.status(500).send({ success: false, message: 'Internal server error' });
+  }
+};

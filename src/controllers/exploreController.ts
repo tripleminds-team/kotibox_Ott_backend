@@ -3,6 +3,8 @@ import { ContentModel } from '../models/Content';
 import { MovieModel } from '../models/Movie';
 import { EpisodeModel } from '../models/Episode';
 import { UserLikeModel } from '../models/UserLike';
+import { UserModel } from '../models/User';
+import { LanguageModel } from '../models/Language';
 import { logger } from '../lib/logger';
 
 // Base URL for share links (set FRONTEND_URL in .env)
@@ -125,23 +127,72 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
       default:          sortBy = { createdAt: -1 };
     }
 
+    // Get user's preferred language (defaulting to Hindi if skipped/not set)
+    let preferredLanguage = 'Hindi';
+    if (userId) {
+      const user = await UserModel.findById(userId).select('preferredLanguage languageSelectionSkipped').lean();
+      if (user) {
+        if (user.preferredLanguage) {
+          preferredLanguage = user.preferredLanguage;
+        } else if (user.languageSelectionSkipped) {
+          preferredLanguage = 'Hindi';
+        }
+      }
+    }
+
+    // Lookup corresponding Language document ObjectId if tab is movie
+    let targetLanguageId: any = null;
+    if (contentType === 'movie' && preferredLanguage) {
+      const mongoose = await import('mongoose');
+      const langDoc = await LanguageModel.findOne({ name: new RegExp(`^${preferredLanguage}$`, 'i') }).lean();
+      if (langDoc) {
+        targetLanguageId = langDoc._id;
+      }
+    }
+
     // ── Fetch a larger batch to allow for deduplication ──────────────────────
     const fetchLimit = limit * FETCH_MULTIPLIER;
 
     let rawContents: any[] = [];
 
     if (contentType === 'movie') {
-      rawContents = await MovieModel.find(filter)
+      const langFilter = { ...filter };
+      if (targetLanguageId) {
+        langFilter.languages = targetLanguageId;
+      }
+      rawContents = await MovieModel.find(langFilter)
         .sort(sortBy)
         .skip(offset)
         .limit(fetchLimit)
         .lean();
+
+      // Fallback if no matching language content
+      if (rawContents.length === 0 && targetLanguageId) {
+        rawContents = await MovieModel.find(filter)
+          .sort(sortBy)
+          .skip(offset)
+          .limit(fetchLimit)
+          .lean();
+      }
     } else {
-      rawContents = await ContentModel.find(filter)
+      const langFilter = { ...filter };
+      if (preferredLanguage) {
+        langFilter.languages = preferredLanguage;
+      }
+      rawContents = await ContentModel.find(langFilter)
         .sort(sortBy)
         .skip(offset)
         .limit(fetchLimit)
         .lean();
+
+      // Fallback if no matching language content
+      if (rawContents.length === 0 && preferredLanguage) {
+        rawContents = await ContentModel.find(filter)
+          .sort(sortBy)
+          .skip(offset)
+          .limit(fetchLimit)
+          .lean();
+      }
     }
 
     logger.info(

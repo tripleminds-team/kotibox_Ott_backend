@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { UserModel } from '../models/User';
 import { ContentModel } from '../models/Content';
+import { LanguageModel } from '../models/Language';
+import mongoose from 'mongoose';
 import { PageModel } from '../models/Page';
 import { logger } from '../lib/logger';
 
@@ -137,5 +139,57 @@ export const updateVideoQuality = async (request: FastifyRequest, reply: Fastify
   } catch (error: any) {
     logger.error({ error }, 'Error updating video quality');
     return reply.status(500).send({ success: false, message: 'Failed to update setting' });
+  }
+};
+
+// ── PUT Preferred Language Setting ──────────────────────────────────────────
+export const updatePreferredLanguage = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ success: false, message: 'Unauthorized' });
+    }
+
+    const { language } = request.body as { language: string };
+    if (!language || typeof language !== 'string') {
+      return reply.status(400).send({ success: false, message: 'Language is required' });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return reply.status(404).send({ success: false, message: 'User not found' });
+    }
+
+    // Resolve language input robustly
+    let resolvedLanguage = language;
+    const langDoc = await LanguageModel.findOne({
+      $or: [
+        { name: new RegExp(`^${language}$`, 'i') },
+        { code: language.toLowerCase() },
+        ...(mongoose.Types.ObjectId.isValid(language) ? [{ _id: language }] : [])
+      ]
+    }).lean();
+    if (langDoc) {
+      resolvedLanguage = langDoc.name;
+    }
+
+    user.preferredLanguage = resolvedLanguage;
+    user.languageSelectionSkipped = false;
+    if (user.profiles && user.profiles.length > 0) {
+      user.profiles[0].language = resolvedLanguage;
+    }
+    await user.save();
+
+    return reply.send({
+      success: true,
+      message: 'Preferred language updated successfully',
+      data: {
+        preferredLanguage: user.preferredLanguage,
+        languageSelectionSkipped: user.languageSelectionSkipped
+      }
+    });
+  } catch (error: any) {
+    logger.error({ error }, 'Error updating preferred language');
+    return reply.status(500).send({ success: false, message: 'Failed to update preferred language' });
   }
 };

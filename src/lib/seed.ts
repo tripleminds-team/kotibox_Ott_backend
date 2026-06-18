@@ -165,9 +165,6 @@ async function seedAdminUsers() {
 }
 
 async function seedGenres() {
-  const count = await GenreModel.countDocuments();
-  if (count > 0) return;
-
   const genres = [
     { name: 'Action', status: 'published' as const, active: true },
     { name: 'Drama', status: 'published' as const, active: true },
@@ -183,8 +180,15 @@ async function seedGenres() {
     { name: 'Mystery', status: 'published' as const, active: true },
   ];
 
-  await GenreModel.insertMany(genres);
-  logger.info('Seeded default genres');
+  for (const g of genres) {
+    const existing = await GenreModel.findOne({ name: g.name });
+    if (!existing) {
+      await GenreModel.create(g);
+    } else if (existing.status !== 'published') {
+      await GenreModel.updateOne({ _id: existing._id }, { $set: { status: 'published' } });
+    }
+  }
+  logger.info('Seeded/verified default genres');
 }
 
 async function seedSampleContent() {

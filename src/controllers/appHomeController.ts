@@ -5,6 +5,8 @@ import { ContentModel } from '../models/Content';
 import { EpisodeModel } from '../models/Episode';
 import { SectionModel } from '../models/Section';
 import { UserLikeModel } from '../models/UserLike';
+import { UserModel } from '../models/User';
+import { LanguageModel } from '../models/Language';
 import { logger } from '../lib/logger';
 import mongoose from 'mongoose';
 
@@ -136,6 +138,28 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     
     const userId = getOptionalUserId(request);
 
+    // Get user's preferred language (defaulting to Hindi if skipped/not set)
+    let preferredLanguage = 'Hindi';
+    if (userId) {
+      const user = await UserModel.findById(userId).select('preferredLanguage languageSelectionSkipped').lean();
+      if (user) {
+        if (user.preferredLanguage) {
+          preferredLanguage = user.preferredLanguage;
+        } else if (user.languageSelectionSkipped) {
+          preferredLanguage = 'Hindi';
+        }
+      }
+    }
+
+    // Lookup corresponding Language document ObjectId if tab is movie
+    let targetLanguageId: mongoose.Types.ObjectId | null = null;
+    if (tab === 'movie' && preferredLanguage) {
+      const langDoc = await LanguageModel.findOne({ name: new RegExp(`^${preferredLanguage}$`, 'i') }).lean();
+      if (langDoc) {
+        targetLanguageId = langDoc._id as mongoose.Types.ObjectId;
+      }
+    }
+
     // Get sections from database, or fallback to default
     const dbSections = await SectionModel.find({ 
       contentType: tab, isActive: true })
@@ -164,16 +188,40 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
       let content;
       if (tab === 'drama') {
         const filter: any = { type: 'series', status: 'published', contentType: 'drama', ...section.filter };
+        if (preferredLanguage) {
+          filter.languages = preferredLanguage;
+        }
         content = await ContentModel.find(filter)
           .sort(section.sortBy)
           .limit(section.limit)
           .lean();
+
+        // Fallback if no matching language content
+        if (content.length === 0 && preferredLanguage) {
+          const fallbackFilter = { type: 'series', status: 'published', contentType: 'drama', ...section.filter };
+          content = await ContentModel.find(fallbackFilter)
+            .sort(section.sortBy)
+            .limit(section.limit)
+            .lean();
+        }
       } else {
         const filter: any = { status: 'published', ...section.filter };
+        if (targetLanguageId) {
+          filter.languages = targetLanguageId;
+        }
         content = await MovieModel.find(filter)
           .sort(section.sortBy)
           .limit(section.limit)
           .lean();
+
+        // Fallback if no matching language content
+        if (content.length === 0 && targetLanguageId) {
+          const fallbackFilter = { status: 'published', ...section.filter };
+          content = await MovieModel.find(fallbackFilter)
+            .sort(section.sortBy)
+            .limit(section.limit)
+            .lean();
+        }
       }
       return { ...section, content };
     });

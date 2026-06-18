@@ -33,6 +33,7 @@ import wishlistRoutes from './wishlist';
 import appProfileRoutes from './appProfile';
 import { getHomePage } from '../controllers/appHomeController';
 import { getExplore } from '../controllers/exploreController';
+import { getSearchPage } from '../controllers/searchController';
 import { getWebHome } from '../controllers/webHomeController';
 import { getWebBrowse } from '../controllers/webBrowseController';
 import { getWebDetail } from '../controllers/webDetailController';
@@ -90,6 +91,9 @@ const router: FastifyPluginAsync = async (fastify) => {
   
   // Explore page (infinite scroll)
   fastify.get('/explore', getExplore);
+
+  // Search page (trending keywords + query results)
+  fastify.get('/search', getSearchPage);
 
   // Web Homepage aggregated data
   fastify.get('/web-home', getWebHome);
