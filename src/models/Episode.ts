@@ -12,7 +12,7 @@ export interface IEpisode extends Document {
   sourceEndSeconds?: number;
   hlsUrl?: string;
   videoQualities?: Array<{
-    quality: '144p' | '360p' | '480p' | '720p' | '1080p';
+    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p';
     url: string;
     size: number;
   }>;
@@ -46,7 +46,7 @@ const EpisodeSchema = new Schema<IEpisode>(
     hlsUrl: String,
     videoQualities: [
       {
-        quality: { type: String, enum: ['144p', '360p', '480p', '720p', '1080p'] },
+        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p'] },
         url: String,
         size: Number,
       },

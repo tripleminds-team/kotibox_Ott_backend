@@ -19,6 +19,7 @@ import { SectionModel } from '../models/Section';
 import { GenreModel } from '../models/Genre';
 import { ActorModel } from '../models/Actor';
 import { DirectorModel } from '../models/Director';
+import { PageModel } from '../models/Page';
 
 async function seedSubscriptionPlans() {
   const count = await SubscriptionPlanModel.countDocuments();
@@ -1088,6 +1089,248 @@ async function seedNotifications() {
   logger.info('Seeded notifications');
 }
 
+async function seedPages() {
+  const count = await PageModel.countDocuments();
+  if (count > 0) return;
+
+  const pages = [
+    {
+      title: 'Privacy Policy',
+      slug: 'privacy-policy',
+      status: 'published' as const,
+      order: 1,
+      content: `<h1>Privacy Policy</h1>
+<p>Last updated: January 2026</p>
+<p>Welcome to our platform. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our streaming service.</p>
+<h2>Information We Collect</h2>
+<p>We collect information you provide directly to us, such as when you create an account, subscribe to our service, or contact us for support.</p>
+<ul>
+  <li><strong>Account Information:</strong> Name, email address, password, and billing information.</li>
+  <li><strong>Usage Data:</strong> Content you watch, search history, ratings and reviews, and watch time.</li>
+  <li><strong>Device Information:</strong> IP address, browser type, device identifiers, and operating system.</li>
+  <li><strong>Payment Information:</strong> Credit card details processed securely through our payment partners.</li>
+</ul>
+<h2>How We Use Your Information</h2>
+<p>We use the information we collect to:</p>
+<ul>
+  <li>Provide, maintain, and improve our streaming service</li>
+  <li>Process transactions and send related information</li>
+  <li>Send promotional communications (with your consent)</li>
+  <li>Personalize your content recommendations</li>
+  <li>Monitor and analyze usage patterns for service improvement</li>
+  <li>Detect and prevent fraudulent or unauthorized activity</li>
+</ul>
+<h2>Information Sharing</h2>
+<p>We do not sell, trade, or rent your personal information to third parties. We may share your information with trusted service providers who assist us in operating our platform, conducting our business, or serving you, provided those parties agree to keep this information confidential.</p>
+<h2>Data Security</h2>
+<p>We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. All data transmissions are encrypted using SSL technology.</p>
+<h2>Cookies</h2>
+<p>We use cookies and similar tracking technologies to enhance your experience on our platform. You can control cookie settings through your browser preferences.</p>
+<h2>Your Rights</h2>
+<p>You have the right to access, correct, or delete your personal data. You may also object to or restrict certain processing of your data. To exercise these rights, please contact us at privacy@kotiboxott.com.</p>
+<h2>Contact Us</h2>
+<p>If you have any questions about this Privacy Policy, please contact us at: <strong>privacy@kotiboxott.com</strong></p>`,
+    },
+    {
+      title: 'Terms of Service',
+      slug: 'terms-of-service',
+      status: 'published' as const,
+      order: 2,
+      content: `<h1>Terms of Service</h1>
+<p>Last updated: January 2026</p>
+<p>Please read these Terms of Service carefully before using our streaming platform. By accessing or using the service, you agree to be bound by these terms.</p>
+<h2>1. Acceptance of Terms</h2>
+<p>By creating an account or using our service, you agree to these Terms of Service and our Privacy Policy. If you do not agree, you may not use our services.</p>
+<h2>2. Subscription and Billing</h2>
+<p>Our service is offered on a subscription basis. You will be charged the subscription fee at the beginning of your billing cycle. Subscriptions automatically renew unless cancelled before the renewal date.</p>
+<ul>
+  <li>Free tier includes limited content with ads</li>
+  <li>Paid plans provide access to premium content and features</li>
+  <li>Prices are subject to change with 30-day notice</li>
+</ul>
+<h2>3. Content License</h2>
+<p>All content available on our platform is licensed to us and protected by copyright law. You may only stream content for personal, non-commercial use. You may not:</p>
+<ul>
+  <li>Download or copy content (except where explicitly permitted)</li>
+  <li>Share your account credentials with others</li>
+  <li>Reproduce, distribute, or create derivative works from our content</li>
+  <li>Use VPN or proxy services to circumvent geographic restrictions</li>
+</ul>
+<h2>4. Account Responsibilities</h2>
+<p>You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. Notify us immediately if you suspect unauthorized use of your account.</p>
+<h2>5. Cancellation and Refunds</h2>
+<p>You may cancel your subscription at any time through your account settings. Cancellation takes effect at the end of your current billing period. We do not provide refunds for partial subscription periods.</p>
+<h2>6. Limitation of Liability</h2>
+<p>To the fullest extent permitted by law, we shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.</p>
+<h2>7. Governing Law</h2>
+<p>These Terms are governed by the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of courts in India.</p>
+<h2>Contact</h2>
+<p>For questions about these Terms, contact us at: <strong>legal@kotiboxott.com</strong></p>`,
+    },
+    {
+      title: 'About Us',
+      slug: 'about-us',
+      status: 'published' as const,
+      order: 3,
+      content: `<h1>About Us</h1>
+<p>Welcome to Kotibox OTT — your premier destination for unlimited entertainment.</p>
+<h2>Our Story</h2>
+<p>Kotibox OTT was founded with a singular mission: to bring the best in entertainment to every screen, everywhere. We believe that great storytelling has the power to connect people, inspire imagination, and transcend boundaries.</p>
+<p>Starting as a small team of passionate content lovers, we've grown into a full-scale streaming platform offering thousands of movies, TV shows, short dramas, and exclusive originals.</p>
+<h2>What We Offer</h2>
+<ul>
+  <li><strong>Movies:</strong> From blockbuster hits to indie gems, we have something for every taste.</li>
+  <li><strong>TV Shows &amp; Series:</strong> Binge-worthy series across every genre — drama, thriller, romance, sci-fi, and more.</li>
+  <li><strong>Short Dramas:</strong> Unique bite-sized episodic content perfect for on-the-go viewing.</li>
+  <li><strong>Original Content:</strong> Exclusive productions you won't find anywhere else.</li>
+</ul>
+<h2>Our Mission</h2>
+<p>We are committed to delivering high-quality entertainment accessible to everyone. Whether you prefer action-packed thrillers, heartwarming romances, or thought-provoking documentaries, our curated library has you covered.</p>
+<h2>Technology</h2>
+<p>We leverage cutting-edge streaming technology to deliver smooth, high-definition video on any device — smartphones, tablets, smart TVs, and web browsers. Our adaptive streaming ensures the best possible quality regardless of your connection speed.</p>
+<h2>Our Team</h2>
+<p>Behind Kotibox OTT is a dedicated team of engineers, designers, content curators, and entertainment enthusiasts working tirelessly to bring you the best viewing experience possible.</p>
+<h2>Get in Touch</h2>
+<p>We'd love to hear from you! Reach us at <strong>hello@kotiboxott.com</strong></p>`,
+    },
+    {
+      title: 'Contact Us',
+      slug: 'contact',
+      status: 'published' as const,
+      order: 4,
+      content: `<h1>Contact Us</h1>
+<p>We're here to help! Whether you have a question, feedback, or need support, don't hesitate to reach out.</p>
+<h2>Customer Support</h2>
+<p>For account issues, billing questions, or technical problems:</p>
+<ul>
+  <li><strong>Email:</strong> support@kotiboxott.com</li>
+  <li><strong>Response Time:</strong> Within 24 hours on business days</li>
+</ul>
+<h2>Business Inquiries</h2>
+<p>For partnerships, advertising, or content licensing:</p>
+<ul>
+  <li><strong>Email:</strong> business@kotiboxott.com</li>
+</ul>
+<h2>Press &amp; Media</h2>
+<p>For press inquiries and media relations:</p>
+<ul>
+  <li><strong>Email:</strong> press@kotiboxott.com</li>
+</ul>
+<h2>Legal</h2>
+<p>For legal matters and compliance:</p>
+<ul>
+  <li><strong>Email:</strong> legal@kotiboxott.com</li>
+</ul>
+<h2>Frequently Asked Questions</h2>
+<p>Before reaching out, you might find your answer in our <a href="/page/help">Help Center</a>. We've compiled answers to the most common questions about accounts, subscriptions, and technical issues.</p>
+<h2>Social Media</h2>
+<p>Follow us for the latest news, releases, and updates:</p>
+<ul>
+  <li>Instagram: @kotiboxott</li>
+  <li>YouTube: Kotibox OTT</li>
+  <li>Facebook: Kotibox OTT Official</li>
+</ul>`,
+    },
+    {
+      title: 'Cookie Policy',
+      slug: 'cookie-policy',
+      status: 'published' as const,
+      order: 5,
+      content: `<h1>Cookie Policy</h1>
+<p>Last updated: January 2026</p>
+<p>This Cookie Policy explains how we use cookies and similar technologies on our platform.</p>
+<h2>What Are Cookies?</h2>
+<p>Cookies are small text files that are stored on your device when you visit a website. They help us provide you with a better experience by remembering your preferences and how you interact with our service.</p>
+<h2>Types of Cookies We Use</h2>
+<h3>Essential Cookies</h3>
+<p>These cookies are necessary for the platform to function properly. They enable basic features like page navigation, secure login, and access to protected areas. The platform cannot function properly without these cookies.</p>
+<h3>Performance Cookies</h3>
+<p>These cookies collect information about how you use our service, such as which pages you visit most often and whether you receive error messages. This data is used to improve how the platform works.</p>
+<h3>Functionality Cookies</h3>
+<p>These cookies allow the platform to remember choices you make (such as your preferred language, playback quality, or subtitle settings) and provide enhanced, personalized features.</p>
+<h3>Targeting / Advertising Cookies</h3>
+<p>These cookies are used to deliver advertisements relevant to you and your interests. They also limit the number of times you see an ad and help measure the effectiveness of advertising campaigns.</p>
+<h2>Managing Cookies</h2>
+<p>Most web browsers allow you to control cookies through their settings. You can usually find these settings in the "options" or "preferences" menu of your browser. However, disabling certain cookies may affect the functionality of our service.</p>
+<h2>Contact</h2>
+<p>If you have questions about our use of cookies, contact us at: <strong>privacy@kotiboxott.com</strong></p>`,
+    },
+    {
+      title: 'Help Center',
+      slug: 'help',
+      status: 'published' as const,
+      order: 6,
+      content: `<h1>Help Center</h1>
+<p>Find answers to the most common questions about our streaming service.</p>
+<h2>Account &amp; Subscription</h2>
+<h3>How do I create an account?</h3>
+<p>Click "Sign Up" on the homepage, enter your name, email, and password, then verify your email address. Your account will be ready immediately.</p>
+<h3>How do I change my subscription plan?</h3>
+<p>Go to Account Settings → Subscription and select the plan you want to switch to. Changes take effect at the start of your next billing cycle.</p>
+<h3>How do I cancel my subscription?</h3>
+<p>Go to Account Settings → Subscription → Cancel Plan. You'll continue to have access until the end of your current billing period.</p>
+<h3>I forgot my password. What should I do?</h3>
+<p>Click "Forgot Password" on the login page and enter your email address. We'll send you a link to reset your password.</p>
+<h2>Streaming &amp; Playback</h2>
+<h3>What streaming quality is available?</h3>
+<p>Depending on your subscription plan, you can stream in SD (480p), HD (720p), Full HD (1080p), or 4K. Quality also depends on your internet connection speed.</p>
+<h3>What internet speed do I need?</h3>
+<ul>
+  <li><strong>SD (480p):</strong> 3 Mbps</li>
+  <li><strong>HD (720p):</strong> 5 Mbps</li>
+  <li><strong>Full HD (1080p):</strong> 10 Mbps</li>
+  <li><strong>4K:</strong> 25 Mbps</li>
+</ul>
+<h3>Can I download content for offline viewing?</h3>
+<p>Downloads are available on Standard and Premium plans. You can download content on mobile devices through our app.</p>
+<h3>How many screens can I watch on simultaneously?</h3>
+<p>The number of simultaneous screens depends on your plan: Free (1 screen), Basic (1 screen), Standard (2 screens), Premium (4 screens).</p>
+<h2>Technical Issues</h2>
+<h3>The video keeps buffering. What should I do?</h3>
+<ul>
+  <li>Check your internet connection speed</li>
+  <li>Lower the streaming quality in the player settings</li>
+  <li>Close other apps or browser tabs</li>
+  <li>Restart your device or browser</li>
+  <li>Clear your browser cache and cookies</li>
+</ul>
+<h3>The app isn't working on my device.</h3>
+<p>Make sure your app is updated to the latest version. If the issue persists, try uninstalling and reinstalling the app, or contact our support team.</p>
+<h2>Still Need Help?</h2>
+<p>If you can't find the answer here, contact our support team at <strong>support@kotiboxott.com</strong></p>`,
+    },
+    {
+      title: 'Refund Policy',
+      slug: 'refund-policy',
+      status: 'published' as const,
+      order: 7,
+      content: `<h1>Refund Policy</h1>
+<p>Last updated: January 2026</p>
+<p>We want you to be satisfied with our service. Please read this refund policy carefully before subscribing.</p>
+<h2>Subscription Refunds</h2>
+<p>All subscription payments are non-refundable. When you subscribe to a paid plan, you are purchasing access to our content library for the duration of your billing period. We do not offer refunds for partial subscription periods.</p>
+<h2>Free Trial Policy</h2>
+<p>If you signed up with a free trial and forgot to cancel before the trial ended, we may, at our discretion, offer a refund for the first charge only if requested within 7 days of the charge date and you have not streamed more than 1 hour of content.</p>
+<h2>Technical Issues</h2>
+<p>If you experience significant technical problems that prevent you from using our service for an extended period (more than 3 days consecutively), you may be eligible for a partial credit to your account. Please contact our support team with details of the issue.</p>
+<h2>Unauthorized Charges</h2>
+<p>If you believe your account was charged without authorization, please contact us immediately at billing@kotiboxott.com. We will investigate and, if unauthorized activity is confirmed, provide a full refund.</p>
+<h2>How to Request a Refund</h2>
+<p>To request a refund under an eligible circumstance:</p>
+<ol>
+  <li>Email billing@kotiboxott.com with your account email and reason for the request</li>
+  <li>Our team will review your request within 3 business days</li>
+  <li>If approved, refunds will be processed to your original payment method within 5-7 business days</li>
+</ol>
+<h2>Contact</h2>
+<p>For billing and refund inquiries: <strong>billing@kotiboxott.com</strong></p>`,
+    },
+  ];
+
+  await PageModel.insertMany(pages);
+  logger.info('Seeded default pages (Privacy Policy, Terms, About, Contact, Help, Cookie Policy, Refund Policy)');
+}
+
 export async function seedDatabase(): Promise<void> {
   try {
     await Promise.all([
@@ -1108,8 +1351,9 @@ export async function seedDatabase(): Promise<void> {
     await Promise.all([
       seedNotificationTemplates(),
       seedNotifications(),
+      seedPages(),
     ]);
-    
+
     logger.info('Database seeding complete');
   } catch (err) {
     logger.error({ err }, 'Database seeding failed');

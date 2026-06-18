@@ -115,22 +115,18 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
     const hlsUrl = movie.hlsUrl || null;
     const qualities: any[] = movie.videoQualities || [];
 
-    const bestUrl =
-      qualities.find((q: any) => q.quality === '1080p')?.url ||
-      qualities.find((q: any) => q.quality === '720p')?.url ||
-      qualities.find((q: any) => q.quality === '480p')?.url ||
-      hlsUrl;
-
-    const dataSaverUrl =
-      qualities.find((q: any) => q.quality === '360p')?.url ||
-      qualities.find((q: any) => q.quality === '144p')?.url ||
-      hlsUrl;
-
     const videoSettings = hlsUrl
       ? [
           { key: 'auto', label: 'Auto (Recommended)', description: 'Adjusts quality automatically', url: hlsUrl },
-          { key: 'best', label: 'Best Quality', description: 'Best watching experience, uses more data', url: bestUrl },
-          { key: 'dataSaver', label: 'Data Saver', description: 'Lower video quality, saves data', url: dataSaverUrl },
+          ...qualities.map((q: any) => {
+            const sizeMB = q.size ? `${Math.round(q.size / (1024 * 1024))} MB` : 'N/A';
+            return {
+              key: q.quality,
+              label: q.quality === '4k' ? '4K' : q.quality.toUpperCase(),
+              description: `${q.quality.toUpperCase()} quality option (${sizeMB})`,
+              url: q.url,
+            };
+          })
         ]
       : null;
 

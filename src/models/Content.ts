@@ -22,7 +22,7 @@ export interface IContent extends Document {
   rejectionReason?: string;
   hlsUrl?: string;
   videoQualities?: Array<{
-    quality: '144p' | '360p' | '480p' | '720p' | '1080p';
+    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p';
     url: string;
     size: number;
   }>;
@@ -82,7 +82,7 @@ const ContentSchema = new Schema<IContent>(
     hlsUrl: String,
     videoQualities: [
       {
-        quality: { type: String, enum: ['144p', '360p', '480p', '720p', '1080p'] },
+        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p'] },
         url: String,
         size: Number,
       },
