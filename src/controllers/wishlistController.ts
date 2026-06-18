@@ -18,7 +18,7 @@ export const toggleWishlist = async (request: FastifyRequest, reply: FastifyRepl
     const userId = user.id;
 
     // Verify content exists
-    const Model = contentType === 'movie' ? MovieModel : ContentModel;
+    const Model = (contentType === 'movie' ? MovieModel : ContentModel) as any;
     const content = await Model.findById(contentId).select('_id');
     if (!content) {
       return reply.status(404).send({ success: false, message: 'Content not found' });

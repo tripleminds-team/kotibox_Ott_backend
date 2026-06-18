@@ -78,7 +78,7 @@ export const getWebDetail = async (request: FastifyRequest, reply: FastifyReply)
     let related: any[] = [];
     if (item.genres && item.genres.length > 0) {
       const primaryGenreId = item.genres[0]._id;
-      const Model = isMovie ? MovieModel : ContentModel;
+      const Model = (isMovie ? MovieModel : ContentModel) as any;
       const relatedRaw = await Model.find({ genres: primaryGenreId, _id: { $ne: item._id }, status: 'published' })
         .sort({ views: -1 })
         .limit(5)

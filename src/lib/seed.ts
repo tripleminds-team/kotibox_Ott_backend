@@ -12,10 +12,13 @@ import { LanguageModel } from '../models/Language';
 import { NotificationTemplateModel } from '../models/NotificationTemplate';
 import { NotificationModel } from '../models/Notification';
 import { BannerModel } from '../models/Banner';
+import mongoose from 'mongoose';
 import { MovieModel } from '../models/Movie';
 import { EpisodeModel } from '../models/Episode';
 import { SectionModel } from '../models/Section';
 import { GenreModel } from '../models/Genre';
+import { ActorModel } from '../models/Actor';
+import { DirectorModel } from '../models/Director';
 
 async function seedSubscriptionPlans() {
   const count = await SubscriptionPlanModel.countDocuments();
@@ -363,12 +366,40 @@ async function seedSampleContent() {
 
 async function seedMovies() {
   await MovieModel.deleteMany({});
+  await ActorModel.deleteMany({});
+  await DirectorModel.deleteMany({});
 
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
 
+  // 1. Seed Actors
+  const actorsToSeed = [
+    { name: 'Rajesh Kumar', image: 'https://i.pravatar.cc/300?img=1', designation: 'Lead Actor', dateOfBirth: new Date('1980-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
+    { name: 'Priya Sharma', image: 'https://i.pravatar.cc/300?img=5', designation: 'Lead Actress', dateOfBirth: new Date('1985-01-01'), birthPlace: 'Delhi', status: true, approvalStatus: 'published' as const },
+    { name: 'Arjun Singh', image: 'https://i.pravatar.cc/300?img=8', designation: 'Supporting Actor', dateOfBirth: new Date('1990-01-01'), birthPlace: 'Chandigarh', status: true, approvalStatus: 'published' as const },
+    { name: 'Meera Nair', image: 'https://i.pravatar.cc/300?img=9', designation: 'Supporting Actress', dateOfBirth: new Date('1988-01-01'), birthPlace: 'Kochi', status: true, approvalStatus: 'published' as const },
+    { name: 'Vikram Patel', image: 'https://i.pravatar.cc/300?img=12', designation: 'Character Actor', dateOfBirth: new Date('1975-01-01'), birthPlace: 'Ahmedabad', status: true, approvalStatus: 'published' as const },
+    { name: 'Sunita Reddy', image: 'https://i.pravatar.cc/300?img=16', designation: 'Lead Actress', dateOfBirth: new Date('1992-01-01'), birthPlace: 'Hyderabad', status: true, approvalStatus: 'published' as const },
+    { name: 'Anil Kapoor Jr.', image: 'https://i.pravatar.cc/300?img=18', designation: 'Lead Actor', dateOfBirth: new Date('1982-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
+    { name: 'Deepa Menon', image: 'https://i.pravatar.cc/300?img=20', designation: 'Supporting Actress', dateOfBirth: new Date('1987-01-01'), birthPlace: 'Bangalore', status: true, approvalStatus: 'published' as const },
+  ];
+  const actors = await ActorModel.insertMany(actorsToSeed);
+
+  // 2. Seed Directors
+  const directorsToSeed = [
+    { name: 'Rohit Shetty Kumar', image: 'https://i.pravatar.cc/300?img=33', designation: 'Director', dateOfBirth: new Date('1973-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
+    { name: 'Anurag Bose', image: 'https://i.pravatar.cc/300?img=36', designation: 'Director', dateOfBirth: new Date('1970-01-01'), birthPlace: 'Bhilai', status: true, approvalStatus: 'published' as const },
+    { name: 'Zoya Akhtar Patel', image: 'https://i.pravatar.cc/300?img=44', designation: 'Director', dateOfBirth: new Date('1972-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
+    { name: 'Kabir Khan Singh', image: 'https://i.pravatar.cc/300?img=50', designation: 'Director', dateOfBirth: new Date('1971-01-01'), birthPlace: 'Hyderabad', status: true, approvalStatus: 'published' as const },
+  ];
+  const directors = await DirectorModel.insertMany(directorsToSeed);
+
+  // 3. Load Genres & Languages
   const dbGenres = await GenreModel.find({ status: 'published' }).lean();
   const genreMap = new Map(dbGenres.map(g => [g.name.toLowerCase(), g._id]));
+
+  const dbLanguages = await LanguageModel.find({}).lean();
+  const languageMap = new Map(dbLanguages.map(l => [l.name.toLowerCase(), l._id]));
 
   const movieData = [
     { title: 'Neon Prophecy',        genre: 'Sci-Fi',    views: 1847293, daysOld: 90,  trending: true,  isNew: true,  featured: true,  imdb: 8.2, rating: 'TV-MA', age: 17 },
@@ -441,7 +472,43 @@ async function seedMovies() {
     const extraSections = [(index % 5 === 0 ? 'award-winners' : allMovieSections[index % allMovieSections.length])];
     const assignedSections = [...new Set([...genreSections, ...extraSections])];
 
+    const staticId = `6a3387222e358a4c3dec${(0xdb34 + index).toString(16).padStart(4, '0')}`;
+
+    // Map genres (Primary + optional secondary)
+    const genreIds = [genreMap.get(movie.genre.toLowerCase())];
+    const secondaryGenreName = index % 3 === 0 ? 'thriller' : (index % 3 === 1 ? 'drama' : 'action');
+    if (secondaryGenreName !== movie.genre.toLowerCase() && genreMap.has(secondaryGenreName)) {
+      genreIds.push(genreMap.get(secondaryGenreName));
+    }
+    const filteredGenreIds = genreIds.filter(Boolean);
+
+    // Map languages
+    const langNames = index % 3 === 0 ? ['hindi', 'english'] : (index % 3 === 1 ? ['tamil', 'telugu'] : ['hindi', 'kannada']);
+    const langIds = langNames.map(l => languageMap.get(l)).filter(Boolean);
+
+    // Map cast members
+    const actor1 = actors[index % actors.length];
+    const actor2 = actors[(index + 2) % actors.length];
+    const actor3 = actors[(index + 5) % actors.length];
+    const cast = [
+      { actor: actor1._id, character: `Hero ${index + 1}`, role: (index % 2 === 0 ? 'Lead Actor' : 'Lead Actress') },
+      { actor: actor2._id, character: `Friend ${index + 1}`, role: 'Supporting Actor' },
+      { actor: actor3._id, character: `Support ${index + 1}`, role: 'Supporting Actress' },
+    ];
+
+    // Map crew
+    const director = directors[index % directors.length];
+    const crew = [{ director: director._id, role: 'Director' }];
+
+    // Default video qualities
+    const videoQualities = [
+      { quality: '1080p' as const, url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', size: 120000000 },
+      { quality: '720p' as const, url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', size: 80000000 },
+      { quality: '360p' as const, url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', size: 30000000 },
+    ];
+
     return {
+      _id: new mongoose.Types.ObjectId(staticId),
       title: movie.title,
       originalTitle: movie.title,
       description: `A gripping ${movie.genre.toLowerCase()} film that will keep you at the edge of your seat.`,
@@ -449,9 +516,9 @@ async function seedMovies() {
       thumbnail: thumbnails[index % thumbnails.length],
       bannerImage: thumbnails[(index + 3) % thumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
       posterImage: thumbnails[(index + 1) % thumbnails.length].replace('w=400&h=600', 'w=600&h=900'),
-      genres: [genreMap.get(movie.genre.toLowerCase())].filter(Boolean),
+      genres: filteredGenreIds,
       categories: [],
-      languages: [],
+      languages: langIds,
       subtitleLanguages: [],
       audioLanguages: [],
       year: 2023 + (index % 2),
@@ -459,8 +526,9 @@ async function seedMovies() {
       ageRating: movie.age,
       duration: 6000 + (index % 10) * 300,
       releaseDate: daysAgo(movie.daysOld),
-      status: 'published',
+      status: 'published' as const,
       hlsUrl: `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`,
+      videoQualities,
       views: movie.views,
       likes: Math.floor(movie.views * 0.08),
       shares: Math.floor(movie.views * 0.02),
@@ -470,16 +538,15 @@ async function seedMovies() {
       isExclusive: index % 4 === 0,
       downloadAllowed: index % 2 === 0,
       sections: assignedSections,
-      cast: [],
-      crew: [],
-      director: 'Director ' + (index + 1),
+      cast,
+      crew,
       producer: 'Producer ' + (index + 1),
       studio: 'StreamVault Originals',
       country: 'India',
       tags: [movie.genre.toLowerCase(), 'movie', 'must-watch'],
       imdbRating: movie.imdb,
       maturityContent: movie.age >= 17 ? ['Violence', 'Strong Language'] : [],
-      planRequired: index % 4 === 0 ? 'premium' : (index % 4 === 1 ? 'basic' : 'free'),
+      planRequired: (index % 4 === 0 ? 'premium' : (index % 4 === 1 ? 'basic' : 'free')) as any,
       createdAt: daysAgo(movie.daysOld),
       updatedAt: daysAgo(Math.max(0, movie.daysOld - 5)),
     };
