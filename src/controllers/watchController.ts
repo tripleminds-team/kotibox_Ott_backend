@@ -11,6 +11,7 @@ import { UserWatchProgressModel } from '../models/UserWatchProgress';
 import '../models/Actor';
 import '../models/Director';
 import { logger } from '../lib/logger';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 // Plan hierarchy
 const PLAN_LEVELS: Record<string, number> = {
@@ -52,9 +53,23 @@ const canAccessItem = (isFree: boolean, isLocked: boolean, contentPlanRequired: 
 };
 
 // Helper to convert relative URLs to absolute URLs
-const toAbsoluteUrl = (request: FastifyRequest, url: string | null | undefined): string | null => {
+const toAbsoluteUrl = (
+  request: FastifyRequest,
+  url: string | null | undefined,
+  s3Active: boolean,
+  s3BaseUrl: string
+): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  
+  const isLocalHls = url.startsWith('hls/') || url.startsWith('/uploads/hls/') || url.includes('/hls/');
+  if (s3Active && !isLocalHls) {
+    let cleanKey = url;
+    if (cleanKey.startsWith('/')) cleanKey = cleanKey.slice(1);
+    if (cleanKey.startsWith('uploads/')) cleanKey = cleanKey.replace('uploads/', '');
+    if (cleanKey.startsWith('/uploads/')) cleanKey = cleanKey.replace('/uploads/', '');
+    return `${s3BaseUrl}/${cleanKey}`;
+  }
   
   let relPath = url;
   if (!relPath.startsWith('/uploads/')) {
@@ -66,24 +81,26 @@ const toAbsoluteUrl = (request: FastifyRequest, url: string | null | undefined):
 };
 
 // Build standard Video Settings array from hlsUrl and per-item videoQualities.
-// Each quality tier falls back to hlsUrl (the item's own adaptive stream) so
-// Data Saver mode always plays the correct video, never a mismatched source.
-const buildVideoSettings = (request: FastifyRequest, hlsUrl: string | null, qualities: any[] = []) => {
-  const autoUrl = toAbsoluteUrl(request, hlsUrl) || null;
+const buildVideoSettings = (
+  request: FastifyRequest,
+  hlsUrl: string | null,
+  qualities: any[] = [],
+  s3Active: boolean,
+  s3BaseUrl: string
+) => {
+  const autoUrl = toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl) || null;
 
   // Best quality: prefer 1080p → 720p → 480p → hlsUrl (never null when hlsUrl exists)
   const bestUrl =
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '1080p')?.url) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '720p')?.url) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '480p')?.url) ||
+    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '1080p')?.url, s3Active, s3BaseUrl) ||
+    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '720p')?.url, s3Active, s3BaseUrl) ||
+    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '480p')?.url, s3Active, s3BaseUrl) ||
     autoUrl;
 
   // Data saver: prefer 360p → 144p → hlsUrl (same source, adaptive stream)
-  // IMPORTANT: do NOT fall through to bestUrl — that would play a different
-  // resolution stream which may be audio-only or visually wrong.
   const dataSaverUrl =
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '360p')?.url) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '144p')?.url) ||
+    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '360p')?.url, s3Active, s3BaseUrl) ||
+    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '144p')?.url, s3Active, s3BaseUrl) ||
     autoUrl; // fall back to the adaptive HLS stream, NOT to a higher-res MP4
 
   return [
@@ -168,6 +185,14 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       isDownloaded = !!downloadDoc;
     }
 
+    // Load S3 settings once for dynamic absolute URL resolution
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const s3Url = await getS3PublicUrl('');
+      s3BaseUrl = s3Url.endsWith('/') ? s3Url.slice(0, -1) : s3Url;
+    }
+
     // ── 4. Map Cast & Crew ────────────────────────────────────────────────────
     let cast: any[] = [];
     let crew: any[] = [];
@@ -176,18 +201,18 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       cast = (content.cast || []).map((c: any) => ({
         id: c.actor?._id?.toString() || null,
         name: c.actor?.name || 'Unknown',
-        image: c.actor?.image || null,
+        image: toAbsoluteUrl(request, c.actor?.image, s3Active, s3BaseUrl) || null,
         role: c.role || 'Actor',
         character: c.character || null,
       }));
       crew = (content.crew || []).map((c: any) => ({
         id: c.director?._id?.toString() || null,
         name: c.director?.name || 'Unknown',
-        image: c.director?.image || null,
+        image: toAbsoluteUrl(request, c.director?.image, s3Active, s3BaseUrl) || null,
         role: c.role || 'Director',
       }));
     } else {
-      cast = (content.cast || []).map((c: any) => ({ name: c.name, image: c.photo || null, role: c.role || 'Actor', character: c.character || null }));
+      cast = (content.cast || []).map((c: any) => ({ name: c.name, image: toAbsoluteUrl(request, c.photo, s3Active, s3BaseUrl) || null, role: c.role || 'Actor', character: c.character || null }));
       crew = (content.crew || []).map((c: any) => ({ name: c.name, image: null, role: c.role || 'Crew' }));
     }
 
@@ -203,10 +228,10 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       
       if (isMovieType) {
         const related = await MovieModel.find(relatedFilter).select('title thumbnail duration type').limit(5).lean();
-        relatedContents = related.map(r => ({ id: r._id.toString(), title: r.title, thumbnail: r.thumbnail, duration: r.duration, type: 'movie' }));
+        relatedContents = related.map(r => ({ id: r._id.toString(), title: r.title, thumbnail: toAbsoluteUrl(request, r.thumbnail, s3Active, s3BaseUrl), duration: r.duration, type: 'movie' }));
       } else {
         const related = await ContentModel.find(relatedFilter).select('title thumbnail type contentType').limit(5).lean();
-        relatedContents = related.map(r => ({ id: r._id.toString(), title: r.title, thumbnail: r.thumbnail, type: r.contentType || 'series' }));
+        relatedContents = related.map(r => ({ id: r._id.toString(), title: r.title, thumbnail: toAbsoluteUrl(request, r.thumbnail, s3Active, s3BaseUrl), type: r.contentType || 'series' }));
       }
     }
 
@@ -240,9 +265,9 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
         duration: content.duration || null,
         isFree: contentPlan === 'free',
         isLocked: !isAccessible,
-        hlsUrl: isAccessible ? toAbsoluteUrl(request, content.hlsUrl) : null,
-        trailerUrl: toAbsoluteUrl(request, content.trailerUrl),
-        videoSettings: isAccessible ? buildVideoSettings(request, content.hlsUrl, content.videoQualities) : null,
+        hlsUrl: isAccessible ? toAbsoluteUrl(request, content.hlsUrl, s3Active, s3BaseUrl) : null,
+        trailerUrl: toAbsoluteUrl(request, content.trailerUrl, s3Active, s3BaseUrl),
+        videoSettings: isAccessible ? buildVideoSettings(request, content.hlsUrl, content.videoQualities, s3Active, s3BaseUrl) : null,
         watchProgress,
       };
 
@@ -293,8 +318,8 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
           duration: ep.duration || null,
           isFree: ep.isFree,
           isLocked: !accessible,
-          hlsUrl: accessible ? toAbsoluteUrl(request, ep.hlsUrl) : null,
-          trailerUrl: toAbsoluteUrl(request, ep.trailerUrl),
+          hlsUrl: accessible ? toAbsoluteUrl(request, ep.hlsUrl, s3Active, s3BaseUrl) : null,
+          trailerUrl: toAbsoluteUrl(request, ep.trailerUrl, s3Active, s3BaseUrl),
           likeCount: ep.likes || 0,
           isLikedByUser: likedEpisodeIdSet.has(ep._id.toString()),
         };
@@ -313,7 +338,9 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
           currentEpisode.videoSettings = buildVideoSettings(
             request,
             currentEpisodeRaw.hlsUrl,
-            currentEpisodeRaw.videoQualities || []
+            currentEpisodeRaw.videoQualities || [],
+            s3Active,
+            s3BaseUrl
           );
         } else {
           currentEpisode.videoSettings = null;
@@ -348,8 +375,8 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
           title: content.title,
           description: content.description || null,
           shortDescription: content.shortDescription || null,
-          thumbnail: content.thumbnail || null,
-          bannerImage: content.bannerImage || null,
+          thumbnail: toAbsoluteUrl(request, content.thumbnail, s3Active, s3BaseUrl) || null,
+          bannerImage: toAbsoluteUrl(request, content.bannerImage, s3Active, s3BaseUrl) || null,
           genres: content.genres || [],
           genresText: (content.genres || []).join(' & '),
           languages: content.languages || [],

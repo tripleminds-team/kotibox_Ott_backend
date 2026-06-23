@@ -8,6 +8,7 @@ import { BannerModel } from '../models/Banner';
 import { ContentModel } from '../models/Content';
 import { EpisodeModel } from '../models/Episode';
 import uploadHandler from '../lib/uploadHandler';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,13 +204,21 @@ const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: stri
   const episode = await EpisodeModel.findById(episodeId);
   if (!episode) return;
 
-  const sourcePath = toLocalUploadPath(sourceVideoUrl);
-  if (!sourcePath || !fs.existsSync(sourcePath)) {
-    await EpisodeModel.findByIdAndUpdate(episodeId, {
-      processingStatus: 'failed',
-      processingError: 'Source video file is not available on local uploads storage.',
-    });
-    return;
+  let ffmpegInput = '';
+  const s3Active = await isS3Configured();
+
+  if (s3Active) {
+    ffmpegInput = await getS3PublicUrl(sourceVideoUrl);
+  } else {
+    const sourcePath = toLocalUploadPath(sourceVideoUrl);
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+      await EpisodeModel.findByIdAndUpdate(episodeId, {
+        processingStatus: 'failed',
+        processingError: 'Source video file is not available on local uploads storage.',
+      });
+      return;
+    }
+    ffmpegInput = sourcePath;
   }
 
   const hlsFolder = path.join(uploadsRoot, 'hls', episode.contentId.toString(), `episode-${episode.episode}`);
@@ -225,7 +234,7 @@ const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: stri
       '-ss',
       String(episode.sourceStartSeconds || 0),
       '-i',
-      sourcePath,
+      ffmpegInput,
       '-t',
       String(episode.duration || 0),
       '-c:v',

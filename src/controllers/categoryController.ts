@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import uploadHandler, { UploadType } from '../lib/uploadHandler';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -503,13 +504,21 @@ const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: stri
     const episode = await EpisodeModel.findById(episodeId).lean();
     if (!episode) return;
 
-    const sourceVideoPath = toLocalUploadPath(sourceVideoUrl);
-    if (!sourceVideoPath || !fs.existsSync(sourceVideoPath)) {
-      await EpisodeModel.findByIdAndUpdate(episodeId, {
-        processingStatus: 'failed',
-        processingError: 'Source video not found',
-      });
-      return;
+    let ffmpegInput = '';
+    const s3Active = await isS3Configured();
+
+    if (s3Active) {
+      ffmpegInput = await getS3PublicUrl(sourceVideoUrl);
+    } else {
+      const sourceVideoPath = toLocalUploadPath(sourceVideoUrl);
+      if (!sourceVideoPath || !fs.existsSync(sourceVideoPath)) {
+        await EpisodeModel.findByIdAndUpdate(episodeId, {
+          processingStatus: 'failed',
+          processingError: 'Source video not found',
+        });
+        return;
+      }
+      ffmpegInput = sourceVideoPath;
     }
 
     const hlsFolder = path.join(uploadsRoot, 'hls', episode.contentId.toString());
@@ -520,8 +529,9 @@ const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: stri
     ensureDir(path.dirname(outputPattern));
 
     await runCommand('ffmpeg', [
+      '-y',
       '-i',
-      sourceVideoPath,
+      ffmpegInput,
       '-ss',
       episode.sourceStartSeconds.toString(),
       '-t',
@@ -530,6 +540,8 @@ const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: stri
       'libx264',
       '-c:a',
       'aac',
+      '-preset',
+      'veryfast',
       '-f',
       'hls',
       '-hls_time',

@@ -6,15 +6,30 @@ import { ContentModel } from '../models/Content';
 import { EpisodeModel } from '../models/Episode';
 import { UserDownloadModel } from '../models/UserDownload';
 import { logger } from '../lib/logger';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 // Helper to format bytes to MB
 const formatSizeMB = (sizeBytes: number): string => {
   return sizeBytes ? `${Math.round(sizeBytes / (1024 * 1024))} MB` : 'N/A';
 };
 
-const toAbsoluteUrl = (request: FastifyRequest, url: string | null | undefined): string | null => {
+const toAbsoluteUrl = (
+  request: FastifyRequest,
+  url: string | null | undefined,
+  s3Active: boolean,
+  s3BaseUrl: string
+): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  
+  const isLocalHls = url.startsWith('hls/') || url.startsWith('/uploads/hls/') || url.includes('/hls/');
+  if (s3Active && !isLocalHls) {
+    let cleanKey = url;
+    if (cleanKey.startsWith('/')) cleanKey = cleanKey.slice(1);
+    if (cleanKey.startsWith('uploads/')) cleanKey = cleanKey.replace('uploads/', '');
+    if (cleanKey.startsWith('/uploads/')) cleanKey = cleanKey.replace('/uploads/', '');
+    return `${s3BaseUrl}/${cleanKey}`;
+  }
   
   let relPath = url;
   if (!relPath.startsWith('/uploads/')) {
@@ -41,30 +56,30 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
       return reply.status(404).send({ success: false, message: 'User not found' });
     }
 
-    const isSubscribed = user.subscriptionStatus === 'active' && (!user.subscriptionExpiry || user.subscriptionExpiry > new Date());
-    if (!isSubscribed) {
-      return reply.status(403).send({
-        success: false,
-        message: 'Active subscription required to download content for offline viewing.'
-      });
+    const isActive = user.subscriptionStatus === 'active' && (!user.subscriptionExpiry || user.subscriptionExpiry > new Date());
+    if (!isActive) {
+      return reply.status(403).send({ success: false, message: 'Active subscription required to download content.' });
     }
 
-    const body = (request.body || {}) as {
-      contentId?: string;
-      contentType?: 'movie' | 'drama' | 'series';
+    const { contentId, episodeId, contentType } = request.body as {
+      contentId: string;
       episodeId?: string;
+      contentType: 'movie' | 'drama' | 'series';
     };
-    const { contentId, contentType, episodeId } = body;
-
-    if (!contentId || !contentType) {
-      return reply.status(400).send({ success: false, message: 'contentId and contentType are required' });
-    }
 
     if (!mongoose.Types.ObjectId.isValid(contentId)) {
       return reply.status(400).send({ success: false, message: 'Invalid contentId' });
     }
 
-    let downloadUrl: string | null = '';
+    // Load S3 settings once for dynamic absolute URL resolution
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const s3Url = await getS3PublicUrl('');
+      s3BaseUrl = s3Url.endsWith('/') ? s3Url.slice(0, -1) : s3Url;
+    }
+
+    let downloadUrl = '';
     let qualities: any[] = [];
     let title = '';
     let parentTitle = '';
@@ -84,15 +99,15 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
       }
 
       title = movie.title;
-      thumbnail = toAbsoluteUrl(request, movie.thumbnail || '') || '';
+      thumbnail = toAbsoluteUrl(request, movie.thumbnail || '', s3Active, s3BaseUrl) || '';
       duration = movie.duration || 0;
-      downloadUrl = toAbsoluteUrl(request, movie.hlsUrl || '');
+      downloadUrl = toAbsoluteUrl(request, movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
       qualities = (movie.videoQualities || []).map((q: any) => ({
         quality: q.quality,
         label: q.quality.toUpperCase(),
         size: q.size,
         sizeFormatted: formatSizeMB(q.size),
-        url: toAbsoluteUrl(request, q.url)
+        url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl)
       }));
       contentModelType = 'Movie';
 
@@ -131,15 +146,15 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
 
       title = episode.title;
       parentTitle = drama.title;
-      thumbnail = toAbsoluteUrl(request, episode.thumbnail || drama.thumbnail || '') || '';
+      thumbnail = toAbsoluteUrl(request, episode.thumbnail || drama.thumbnail || '', s3Active, s3BaseUrl) || '';
       duration = episode.duration || 0;
-      downloadUrl = toAbsoluteUrl(request, episode.hlsUrl || '');
+      downloadUrl = toAbsoluteUrl(request, episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
       qualities = (episode.videoQualities || []).map((q: any) => ({
         quality: q.quality,
         label: q.quality.toUpperCase(),
         size: q.size,
         sizeFormatted: formatSizeMB(q.size),
-        url: toAbsoluteUrl(request, q.url)
+        url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl)
       }));
       contentModelType = 'Content';
 
@@ -153,151 +168,167 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
 
     return reply.send({
       success: true,
-      message: 'Download request authorized successfully.',
       data: {
-        id: downloadDoc?._id?.toString() || null,
-        type: contentType,
-        title,
-        parentTitle: parentTitle || undefined,
-        contentType,
-        thumbnail,
-        duration,
-        hlsUrl: downloadUrl,
-        videoQualities: qualities
+        id: downloadDoc._id.toString(),
+        userId: userId,
+        contentId: contentId,
+        episodeId: episodeId || null,
+        contentType: contentType,
+        title: title,
+        parentTitle: parentTitle,
+        thumbnail: thumbnail,
+        duration: duration,
+        downloadUrl: downloadUrl,
+        videoQualities: qualities,
+        status: downloadDoc.status || 'pending',
+        progress: downloadDoc.progress || 0,
+        createdAt: downloadDoc.createdAt
       }
     });
-
   } catch (error: any) {
-    logger.error({ error }, 'Error authorizing download');
-    return reply.status(500).send({ success: false, message: 'Internal server error', error: error.message });
+    logger.error(error, 'Error requesting download');
+    return reply.status(500).send({ success: false, message: 'Failed to request download.', error: error.message });
   }
 };
 
-export const getDownloadsList = async (request: FastifyRequest, reply: FastifyReply) => {
+export const getDownloadList = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const userPayload = (request as any).user;
     if (!userPayload || !userPayload.id) {
       return reply.status(401).send({ success: false, message: 'Unauthorized' });
     }
     const userId = userPayload.id;
-    // Cast userId string to ObjectId for all DB queries
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    const query = request.query as { page?: string; limit?: string };
-    const page = Math.max(1, Number(query.page || 1));
-    const limit = Math.min(50, Math.max(1, Number(query.limit || 20)));
-    const skip = (page - 1) * limit;
+    const downloads = await UserDownloadModel.find({ userId: userObjectId }).sort({ createdAt: -1 }).lean();
 
-    const [downloads, total] = await Promise.all([
-      UserDownloadModel.find({ userId: userObjectId })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      UserDownloadModel.countDocuments({ userId: userObjectId })
-    ]);
+    // Load S3 settings once for dynamic absolute URL resolution
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const s3Url = await getS3PublicUrl('');
+      s3BaseUrl = s3Url.endsWith('/') ? s3Url.slice(0, -1) : s3Url;
+    }
 
-    const movieIds = downloads.filter(d => d.contentModelType === 'Movie').map(d => d.contentId);
-    const contentIds = downloads.filter(d => d.contentModelType === 'Content').map(d => d.contentId);
-    const episodeIds = downloads.filter(d => d.episodeId).map(d => d.episodeId!);
+    const result = [];
 
-    const [movies, dramas, episodes] = await Promise.all([
-      movieIds.length > 0 ? MovieModel.find({ _id: { $in: movieIds } }).select('title thumbnail duration year rating').lean() : Promise.resolve([]),
-      contentIds.length > 0 ? ContentModel.find({ _id: { $in: contentIds } }).select('title thumbnail').lean() : Promise.resolve([]),
-      episodeIds.length > 0 ? EpisodeModel.find({ _id: { $in: episodeIds } }).select('title thumbnail duration season episode').lean() : Promise.resolve([])
-    ]);
+    for (const dl of downloads) {
+      let title = '';
+      let parentTitle = '';
+      let thumbnail = '';
+      let duration = 0;
+      let downloadUrl = '';
+      let qualities: any[] = [];
+      let exists = false;
 
-    const movieMap = new Map(movies.map(m => [m._id.toString(), m]));
-    const dramaMap = new Map(dramas.map(d => [d._id.toString(), d]));
-    const episodeMap = new Map(episodes.map(e => [e._id.toString(), e]));
-
-    const mappedItems = downloads.map(item => {
-      const isMovie = item.contentModelType === 'Movie';
-      if (isMovie) {
-        const m = movieMap.get(item.contentId.toString());
-        return {
-          id: item._id.toString(),
-          contentId: item.contentId.toString(),
-          title: m?.title || 'Movie',
-          thumbnail: m?.thumbnail || '',
-          duration: m?.duration || 0,
-          year: m?.year || null,
-          rating: m?.rating || null,
-          type: 'movie',
-          downloadedAt: item.createdAt
-        };
+      if (dl.contentModelType === 'Movie') {
+        const movie = await MovieModel.findById(dl.contentId).lean();
+        if (movie && movie.status === 'published') {
+          title = movie.title;
+          thumbnail = toAbsoluteUrl(request, movie.thumbnail || '', s3Active, s3BaseUrl) || '';
+          duration = movie.duration || 0;
+          downloadUrl = toAbsoluteUrl(request, movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
+          qualities = (movie.videoQualities || []).map((q: any) => ({
+            quality: q.quality,
+            label: q.quality.toUpperCase(),
+            size: q.size,
+            sizeFormatted: formatSizeMB(q.size),
+            url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl)
+          }));
+          exists = true;
+        }
       } else {
-        const d = dramaMap.get(item.contentId.toString());
-        const e = item.episodeId ? episodeMap.get(item.episodeId.toString()) : null;
-        return {
-          id: item._id.toString(),
-          contentId: item.contentId.toString(),
-          episodeId: item.episodeId?.toString() || null,
-          title: e?.title || d?.title || 'Episode',
-          parentTitle: d?.title || '',
-          thumbnail: e?.thumbnail || d?.thumbnail || '',
-          duration: e?.duration || 0,
-          season: e?.season || null,
-          episodeNumber: (e as any)?.episode || null,
-          type: 'drama',
-          downloadedAt: item.createdAt
-        };
-      }
-    });
-
-    return reply.send({
-      success: true,
-      data: {
-        items: mappedItems,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit)
+        const [drama, episode] = await Promise.all([
+          ContentModel.findById(dl.contentId).lean(),
+          EpisodeModel.findById(dl.episodeId).lean()
+        ]);
+        if (drama && drama.status === 'published' && episode && episode.processingStatus === 'ready') {
+          title = episode.title;
+          parentTitle = drama.title;
+          thumbnail = toAbsoluteUrl(request, episode.thumbnail || drama.thumbnail || '', s3Active, s3BaseUrl) || '';
+          duration = episode.duration || 0;
+          downloadUrl = toAbsoluteUrl(request, episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
+          qualities = (episode.videoQualities || []).map((q: any) => ({
+            quality: q.quality,
+            label: q.quality.toUpperCase(),
+            size: q.size,
+            sizeFormatted: formatSizeMB(q.size),
+            url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl)
+          }));
+          exists = true;
         }
       }
-    });
 
+      if (exists) {
+        result.push({
+          id: dl._id.toString(),
+          contentId: dl.contentId.toString(),
+          episodeId: dl.episodeId?.toString() || null,
+          contentType: dl.contentModelType === 'Movie' ? 'movie' : 'drama',
+          title: title,
+          parentTitle: parentTitle,
+          thumbnail: thumbnail,
+          duration: duration,
+          downloadUrl: downloadUrl,
+          videoQualities: qualities,
+          status: dl.status || 'pending',
+          progress: dl.progress || 0,
+          createdAt: dl.createdAt
+        });
+      }
+    }
+
+    return reply.send({
+      success: true,
+      data: result
+    });
   } catch (error: any) {
-    logger.error({ error }, 'Error fetching downloads list');
-    return reply.status(500).send({ success: false, message: 'Internal server error', error: error.message });
+    logger.error(error, 'Error getting downloads list');
+    return reply.status(500).send({ success: false, message: 'Failed to fetch downloads.', error: error.message });
   }
 };
 
-export const removeDownload = async (request: FastifyRequest, reply: FastifyReply) => {
+export const getDownloadsList = getDownloadList;
+
+export const deleteDownload = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const userPayload = (request as any).user;
     if (!userPayload || !userPayload.id) {
       return reply.status(401).send({ success: false, message: 'Unauthorized' });
     }
     const userId = userPayload.id;
-    // Cast userId string to ObjectId for all DB queries
     const userObjectId = new mongoose.Types.ObjectId(userId);
+
     const { id } = request.params as { id: string };
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return reply.status(400).send({ success: false, message: 'Invalid ID' });
+    if (id === 'all') {
+      await UserDownloadModel.deleteMany({ userId: userObjectId });
+      return reply.send({
+        success: true,
+        message: 'All downloads deleted successfully'
+      });
     }
 
-    // Try deleting by download log _id first, then by contentId as fallback
-    // (some mobile clients send contentId instead of the log _id)
-    let download = await UserDownloadModel.findOneAndDelete({ _id: id, userId: userObjectId });
-    if (!download) {
-      download = await UserDownloadModel.findOneAndDelete({ contentId: id, userId: userObjectId });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return reply.status(400).send({ success: false, message: 'Invalid download ID' });
     }
-    if (!download) {
-      return reply.status(404).send({ success: false, message: 'Download not found or already removed' });
+
+    const deleted = await UserDownloadModel.findOneAndDelete({ _id: new mongoose.Types.ObjectId(id), userId: userObjectId });
+    if (!deleted) {
+      return reply.status(404).send({ success: false, message: 'Download record not found' });
     }
 
     return reply.send({
       success: true,
-      message: 'Download log deleted successfully.'
+      message: 'Download deleted successfully'
     });
   } catch (error: any) {
-    logger.error({ error }, 'Error removing download log');
-    return reply.status(500).send({ success: false, message: 'Internal server error', error: error.message });
+    logger.error(error, 'Error deleting download');
+    return reply.status(500).send({ success: false, message: 'Failed to delete download.', error: error.message });
   }
 };
+
+export const removeDownload = deleteDownload;
 
 export const removeAllDownloads = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -316,7 +347,7 @@ export const removeAllDownloads = async (request: FastifyRequest, reply: Fastify
       deletedCount: result.deletedCount
     });
   } catch (error: any) {
-    logger.error({ error }, 'Error removing all downloads');
-    return reply.status(500).send({ success: false, message: 'Internal server error', error: error.message });
+    logger.error(error, 'Error removing all downloads');
+    return reply.status(500).send({ success: false, message: 'Failed to delete all downloads.', error: error.message });
   }
 };

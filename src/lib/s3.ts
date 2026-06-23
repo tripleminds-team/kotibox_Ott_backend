@@ -135,3 +135,18 @@ export async function isS3Configured(): Promise<boolean> {
   const settings = await getS3Settings();
   return !!(settings.accessKeyId && settings.secretAccessKey && settings.storageDriver === 's3');
 }
+
+export async function getS3PublicUrl(key: string): Promise<string> {
+  const settings = await getS3Settings();
+  if (key.startsWith('http://') || key.startsWith('https://')) return key;
+  
+  // Normalize key by stripping leading slash or uploads/ prefix if present
+  let cleanKey = key;
+  if (cleanKey.startsWith('/')) cleanKey = cleanKey.slice(1);
+  if (cleanKey.startsWith('uploads/')) cleanKey = cleanKey.replace('uploads/', '');
+  if (cleanKey.startsWith('/uploads/')) cleanKey = cleanKey.replace('/uploads/', '');
+
+  return settings.pathStyle 
+    ? `https://s3.${settings.region}.amazonaws.com/${settings.bucket}/${cleanKey}`
+    : `https://${settings.bucket}.s3.${settings.region}.amazonaws.com/${cleanKey}`;
+}

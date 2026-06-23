@@ -7,13 +7,27 @@ import { UserWishlistModel } from '../models/UserWishlist';
 import { UserWatchProgressModel } from '../models/UserWatchProgress';
 import { UserDownloadModel } from '../models/UserDownload';
 import { logger } from '../lib/logger';
-
 import { buildShareUrl } from '../lib/config';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 // Helper to convert relative URLs to absolute URLs
-const toAbsoluteUrl = (request: FastifyRequest, url: string | null | undefined): string | null => {
+const toAbsoluteUrl = (
+  request: FastifyRequest,
+  url: string | null | undefined,
+  s3Active: boolean,
+  s3BaseUrl: string
+): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  
+  const isLocalHls = url.startsWith('hls/') || url.startsWith('/uploads/hls/') || url.includes('/hls/');
+  if (s3Active && !isLocalHls) {
+    let cleanKey = url;
+    if (cleanKey.startsWith('/')) cleanKey = cleanKey.slice(1);
+    if (cleanKey.startsWith('uploads/')) cleanKey = cleanKey.replace('uploads/', '');
+    if (cleanKey.startsWith('/uploads/')) cleanKey = cleanKey.replace('/uploads/', '');
+    return `${s3BaseUrl}/${cleanKey}`;
+  }
   
   let relPath = url;
   if (!relPath.startsWith('/uploads/')) {
@@ -24,7 +38,7 @@ const toAbsoluteUrl = (request: FastifyRequest, url: string | null | undefined):
   return `${baseUrl}${relPath}`;
 };
 
-// Helper: extract optional userId from JWT without throwing
+// Helper: try to extract userId from JWT without throwing
 const getOptionalUserId = (request: FastifyRequest): string | null => {
   try {
     const authHeader = request.headers.authorization;
@@ -94,6 +108,14 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
       }
     }
 
+    // Load S3 settings once for dynamic absolute URL resolution
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const s3Url = await getS3PublicUrl('');
+      s3BaseUrl = s3Url.endsWith('/') ? s3Url.slice(0, -1) : s3Url;
+    }
+
     // ── 3. Related Movies (same genre, limit 10) ──────────────────────────────
     let related: any[] = [];
     if (movie.genres && movie.genres.length > 0) {
@@ -111,8 +133,8 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
       related = relatedMovies.map((r: any) => ({
         id: r._id.toString(),
         title: r.title,
-        thumbnail: toAbsoluteUrl(request, r.thumbnail) || null,
-        bannerImage: toAbsoluteUrl(request, r.bannerImage) || null,
+        thumbnail: toAbsoluteUrl(request, r.thumbnail, s3Active, s3BaseUrl) || null,
+        bannerImage: toAbsoluteUrl(request, r.bannerImage, s3Active, s3BaseUrl) || null,
         duration: r.duration || null,
         year: r.year || null,
         rating: r.rating || null,
@@ -125,7 +147,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
     const cast = (movie.cast || []).map((c: any) => ({
       id: c.actor?._id?.toString() || null,
       name: c.actor?.name || 'Unknown',
-      image: toAbsoluteUrl(request, c.actor?.image) || null,
+      image: toAbsoluteUrl(request, c.actor?.image, s3Active, s3BaseUrl) || null,
       designation: c.actor?.designation || null,
       role: c.role || 'Actor',
       character: c.character || null,
@@ -134,7 +156,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
     const crew = (movie.crew || []).map((c: any) => ({
       id: c.director?._id?.toString() || null,
       name: c.director?.name || 'Unknown',
-      image: toAbsoluteUrl(request, c.director?.image) || null,
+      image: toAbsoluteUrl(request, c.director?.image, s3Active, s3BaseUrl) || null,
       designation: c.director?.designation || null,
       role: c.role || 'Director',
     }));
@@ -152,14 +174,14 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
 
     const videoSettings = hlsUrl
       ? [
-          { key: 'auto', label: 'Auto', description: 'Adjusts quality automatically', url: toAbsoluteUrl(request, hlsUrl) },
+          { key: 'auto', label: 'Auto', description: 'Adjusts quality automatically', url: toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl) },
           ...qualities.map((q: any) => {
             const sizeMB = q.size ? `${Math.round(q.size / (1024 * 1024))} MB` : 'N/A';
             return {
               key: q.quality,
               label: q.quality === '4k' ? '4K' : q.quality.toUpperCase(),
               description: `${q.quality.toUpperCase()} quality option (${sizeMB})`,
-              url: toAbsoluteUrl(request, q.url),
+              url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl),
             };
           })
         ]
@@ -177,14 +199,14 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
         originalTitle: movie.originalTitle || null,
         description: movie.description || null,
         shortDescription: movie.shortDescription || null,
-        thumbnail: toAbsoluteUrl(request, movie.thumbnail) || null,
-        bannerImage: toAbsoluteUrl(request, movie.bannerImage) || null,
-        posterImage: toAbsoluteUrl(request, movie.posterImage) || null,
-        trailerUrl: toAbsoluteUrl(request, movie.trailerUrl) || null,
+        thumbnail: toAbsoluteUrl(request, movie.thumbnail, s3Active, s3BaseUrl) || null,
+        bannerImage: toAbsoluteUrl(request, movie.bannerImage, s3Active, s3BaseUrl) || null,
+        posterImage: toAbsoluteUrl(request, movie.posterImage, s3Active, s3BaseUrl) || null,
+        trailerUrl: toAbsoluteUrl(request, movie.trailerUrl, s3Active, s3BaseUrl) || null,
         type: 'movie',
 
         // Video
-        hlsUrl: toAbsoluteUrl(request, hlsUrl),
+        hlsUrl: toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl),
         videoSettings,
         playbackSpeeds: [
           { value: 0.75, label: '0.75x' },

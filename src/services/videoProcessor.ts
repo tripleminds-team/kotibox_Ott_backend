@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { Types } from 'mongoose';
 import { MovieModel } from '../models/Movie';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 const runCommand = (command: string, args: string[]): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -52,13 +53,25 @@ export const processMovieHls = async (movieId: Types.ObjectId | string, sourceVi
     const movie = await MovieModel.findById(movieId).lean();
     if (!movie) return;
 
-    const sourceVideoPath = toLocalUploadPath(sourceVideoUrl);
-    if (!sourceVideoPath || !fs.existsSync(sourceVideoPath)) {
-      await MovieModel.findByIdAndUpdate(movieId, {
-        processingStatus: 'failed',
-        processingError: 'Source video not found on disk: ' + sourceVideoPath,
-      });
-      return;
+    await MovieModel.findByIdAndUpdate(movieId, { processingStatus: 'processing' });
+
+    let ffmpegInput = '';
+    const s3Active = await isS3Configured();
+
+    if (s3Active) {
+      // If S3 is active, the raw file is stored in S3.
+      // FFmpeg can stream it directly from S3.
+      ffmpegInput = await getS3PublicUrl(sourceVideoUrl);
+    } else {
+      const sourceVideoPath = toLocalUploadPath(sourceVideoUrl);
+      if (!sourceVideoPath || !fs.existsSync(sourceVideoPath)) {
+        await MovieModel.findByIdAndUpdate(movieId, {
+          processingStatus: 'failed',
+          processingError: 'Source video not found on disk: ' + sourceVideoPath,
+        });
+        return;
+      }
+      ffmpegInput = sourceVideoPath;
     }
 
     const uploadsRoot = path.join(process.cwd(), 'uploads');
@@ -71,9 +84,11 @@ export const processMovieHls = async (movieId: Types.ObjectId | string, sourceVi
 
     // Full movie conversion
     await runCommand('ffmpeg', [
-      '-i', sourceVideoPath,
+      '-y', // Overwrite output files
+      '-i', ffmpegInput,
       '-c:v', 'libx264',
       '-c:a', 'aac',
+      '-preset', 'veryfast', // Increase transcoding speed
       '-f', 'hls',
       '-hls_time', '10',
       '-hls_playlist_type', 'vod',
