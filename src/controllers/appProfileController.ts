@@ -333,20 +333,42 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
       type: 'drama'
     }));
 
-    // 4. App Links / Pages
-    // Try to find Pages in DB, else use fallback
+    // 4. App Links / Pages — resolve real slugs from DB
     const pages = await PageModel.find({ status: 'published' }).lean();
-    const getPageSlug = (slug: string) => pages.find(p => p.slug === slug)?._id?.toString() || null;
+
+    // Helper: build full API URL if slug exists in DB, otherwise null
+    const getPageUrl = (slug: string): string | null => {
+      const found = pages.find(p => p.slug === slug);
+      return found ? `http://3.110.55.185/api/pages/${found.slug}` : null;
+    };
+
+    // Fetch platform/contact info from settings
+    const dbSettings = await SettingsModel.findOne().lean();
+    const platformName = dbSettings?.platformName || 'Kotibox';
+    const contactEmail = dbSettings?.mailFrom || dbSettings?.mailEmail || 'support@kotibox.com';
+    const shareAppText = `Watch amazing short dramas and movies on ${platformName}!`;
 
     const appSettings = {
-      videoPlayerSettingsTitle: 'Video player settings',
       shareAppTitle: 'Share the App',
-      shareAppText: 'Watch amazing short dramas and movies on Xoto OTT!',
+      shareAppText,
       shareAppUrl: 'https://play.google.com/store/apps/details?id=com.xoto.ott',
       links: [
-        { title: 'Privacy Policy', url: getPageSlug('privacy-policy') ? `/api/pages/privacy-policy` : 'https://xoto.com/privacy' },
-        { title: 'Terms & Conditions', url: getPageSlug('terms-conditions') ? `/api/pages/terms-conditions` : 'https://xoto.com/terms' },
-        { title: 'Contact Us', url: 'mailto:support@xoto.com' },
+        {
+          title: 'Privacy Policy',
+          url: getPageUrl('privacy-policy') || `http://3.110.55.185/api/pages/privacy-policy`
+        },
+        {
+          title: 'Terms & Conditions',
+          url: getPageUrl('terms-of-service') || `http://3.110.55.185/api/pages/terms-of-service`
+        },
+        {
+          title: 'Contact Us',
+          url: getPageUrl('contact') || `mailto:${contactEmail}`
+        },
+        {
+          title: 'Help Center',
+          url: getPageUrl('help') || `http://3.110.55.185/api/pages/help`
+        },
       ],
       appVersion: 'V1.2.4',
     };
