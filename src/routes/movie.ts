@@ -11,6 +11,7 @@ import {
   getPendingApprovals,
   approveMovie,
   rejectMovie,
+  getMovieProcessingStatus,
 } from '../controllers/movieController';
 import { requirePermission } from '../middlewares/rbac';
 
@@ -47,6 +48,9 @@ const movie: FastifyPluginAsync = async (fastify) => {
 
   // Toggle trending status
   fastify.patch('/:id/trending', { onRequest: [requirePermission('movies', 'canEdit')] }, toggleTrending);
+
+  // Poll HLS processing status — used by admin panel progress indicator
+  fastify.get('/:id/processing-status', getMovieProcessingStatus);
 };
 
 export default movie;

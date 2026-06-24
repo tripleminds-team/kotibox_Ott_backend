@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import uploadHandler, { UploadType } from '../lib/uploadHandler';
 import { isS3Configured, getS3PublicUrl } from '../lib/s3';
+import { processEpisodesInBackground } from '../services/videoProcessor';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -499,78 +500,7 @@ export const mapEpisode = (episode: any) => ({
   processingError: episode.processingError,
 });
 
-const processEpisodeHls = async (episodeId: Types.ObjectId, sourceVideoUrl: string) => {
-  try {
-    const episode = await EpisodeModel.findById(episodeId).lean();
-    if (!episode) return;
 
-    let ffmpegInput = '';
-    const s3Active = await isS3Configured();
-
-    if (s3Active) {
-      ffmpegInput = await getS3PublicUrl(sourceVideoUrl);
-    } else {
-      const sourceVideoPath = toLocalUploadPath(sourceVideoUrl);
-      if (!sourceVideoPath || !fs.existsSync(sourceVideoPath)) {
-        await EpisodeModel.findByIdAndUpdate(episodeId, {
-          processingStatus: 'failed',
-          processingError: 'Source video not found',
-        });
-        return;
-      }
-      ffmpegInput = sourceVideoPath;
-    }
-
-    const hlsFolder = path.join(uploadsRoot, 'hls', episode.contentId.toString());
-    ensureDir(hlsFolder);
-
-    const outputPattern = path.join(hlsFolder, `episode_${episode.episode}`, 'segment_%03d.ts');
-    const playlistPath = path.join(hlsFolder, `episode_${episode.episode}`, 'playlist.m3u8');
-    ensureDir(path.dirname(outputPattern));
-
-    await runCommand('ffmpeg', [
-      '-y',
-      '-i',
-      ffmpegInput,
-      '-ss',
-      episode.sourceStartSeconds.toString(),
-      '-t',
-      (episode.sourceEndSeconds - episode.sourceStartSeconds).toString(),
-      '-c:v',
-      'libx264',
-      '-c:a',
-      'aac',
-      '-preset',
-      'veryfast',
-      '-f',
-      'hls',
-      '-hls_time',
-      '10',
-      '-hls_list_size',
-      '0',
-      outputPattern,
-    ]);
-
-    await EpisodeModel.findByIdAndUpdate(episodeId, {
-      hlsUrl: `/uploads/hls/${episode.contentId.toString()}/episode_${episode.episode}/playlist.m3u8`,
-      processingStatus: 'completed',
-    });
-  } catch (error: any) {
-    console.error('Error processing episode HLS:', error);
-    await EpisodeModel.findByIdAndUpdate(episodeId, {
-      processingStatus: 'failed',
-      processingError: error.message,
-    });
-  }
-};
-
-export const processEpisodesInBackground = (episodeIds: Types.ObjectId[], sourceVideoUrl: string) => {
-  setImmediate(async () => {
-    for (const episodeId of episodeIds) {
-      await processEpisodeHls(episodeId, sourceVideoUrl);
-    }
-  });
-};
 
 export const createEpisodeSlices = async ({
   contentId,

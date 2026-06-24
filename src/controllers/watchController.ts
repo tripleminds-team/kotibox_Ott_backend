@@ -80,34 +80,98 @@ const toAbsoluteUrl = (
   return `${baseUrl}${relPath}`;
 };
 
-// Build standard Video Settings array from hlsUrl and per-item videoQualities.
-const buildVideoSettings = (
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build the quality list returned to Flutter/Web players.
+// "Auto" uses master.m3u8 so ExoPlayer/MediaKit does ABR automatically.
+// Each named quality links directly to its sub-playlist.
+// ─────────────────────────────────────────────────────────────────────────────
+// Quality label map — used by both series/episode and movie watch endpoints
+export const QUALITY_LABELS: Record<string, string> = {
+  '144p':  '144p',
+  '240p':  '240p',
+  '360p':  '360p',
+  '480p':  '480p SD',
+  '720p':  '720p HD',
+  '1080p': '1080p Full HD',
+  '1440p': '2K',
+  '2160p': '4K Ultra HD',
+};
+
+// Defines the minimum plan required to stream each quality (for future subscription gating)
+export const QUALITY_PLAN_GATE: Record<string, string> = {
+  '144p':  'free',
+  '240p':  'free',
+  '360p':  'free',
+  '480p':  'free',
+  '720p':  'basic',
+  '1080p': 'standard',
+  '1440p': 'premium',
+  '2160p': 'premium',
+};
+
+const QUALITY_ORDER = ['144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'];
+
+const buildNamedQualities = (
   request: FastifyRequest,
   hlsUrl: string | null,
   qualities: any[] = [],
   s3Active: boolean,
-  s3BaseUrl: string
+  s3BaseUrl: string,
+  userPlan: string = 'free'
 ) => {
-  const autoUrl = toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl) || null;
+  const autoUrl = toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl);
 
-  // Best quality: prefer 1080p → 720p → 480p → hlsUrl (never null when hlsUrl exists)
-  const bestUrl =
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '1080p')?.url, s3Active, s3BaseUrl) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '720p')?.url, s3Active, s3BaseUrl) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '480p')?.url, s3Active, s3BaseUrl) ||
-    autoUrl;
-
-  // Data saver: prefer 360p → 144p → hlsUrl (same source, adaptive stream)
-  const dataSaverUrl =
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '360p')?.url, s3Active, s3BaseUrl) ||
-    toAbsoluteUrl(request, qualities.find((q: any) => q.quality === '144p')?.url, s3Active, s3BaseUrl) ||
-    autoUrl; // fall back to the adaptive HLS stream, NOT to a higher-res MP4
-
-  return [
-    { key: 'auto', label: 'Auto', description: 'Adjusts the video quality to give you the best experience for your conditions', url: autoUrl },
-    { key: 'best', label: 'Best Quality', description: 'Best watching experience, uses more data', url: bestUrl },
-    { key: 'dataSaver', label: 'Data Saver', description: 'Lower video quality, saves data', url: dataSaverUrl },
+  const result: Array<{
+    key: string;
+    label: string;
+    description: string;
+    url: string | null;
+    requiresPlan: string;
+    isLocked: boolean;
+  }> = [
+    {
+      key: 'auto',
+      label: 'Auto',
+      description: 'Adjusts automatically based on your connection speed',
+      url: autoUrl,
+      requiresPlan: 'free',
+      isLocked: false,
+    },
   ];
+
+  // Sort stored qualities in ascending order and add each one
+  const sortedQualities = [...qualities].sort(
+    (a, b) => QUALITY_ORDER.indexOf(a.quality) - QUALITY_ORDER.indexOf(b.quality)
+  );
+
+  for (const q of sortedQualities) {
+    if (!q.quality || !q.url) continue;
+    const absoluteUrl = toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl);
+    if (!absoluteUrl) continue;
+    const requiredPlan = QUALITY_PLAN_GATE[q.quality] || 'free';
+    // isLocked: currently always false — flip to real check when subscriptions go live:
+    // const isLocked = PLAN_LEVELS[userPlan] < PLAN_LEVELS[requiredPlan];
+    const isLocked = false;
+    result.push({
+      key:          q.quality,
+      label:        QUALITY_LABELS[q.quality] || q.quality,
+      description:  q.quality === '144p' ? 'Very low quality — for slow connections' :
+                    q.quality === '240p' ? 'Low quality — saves data' :
+                    q.quality === '360p' ? 'Low quality' :
+                    q.quality === '480p' ? 'Standard definition' :
+                    q.quality === '720p' ? 'High definition' :
+                    q.quality === '1080p' ? 'Full HD — recommended' :
+                    q.quality === '1440p' ? '2K — requires fast connection' :
+                    q.quality === '2160p' ? '4K Ultra HD — requires very fast connection' :
+                    `Stream at ${QUALITY_LABELS[q.quality] || q.quality}`,
+      url:          absoluteUrl,
+      requiresPlan: requiredPlan,
+      isLocked,
+    });
+  }
+
+  return result;
 };
 
 export const getWatchData = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -267,7 +331,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
         isLocked: !isAccessible,
         hlsUrl: isAccessible ? toAbsoluteUrl(request, content.hlsUrl, s3Active, s3BaseUrl) : null,
         trailerUrl: toAbsoluteUrl(request, content.trailerUrl, s3Active, s3BaseUrl),
-        videoSettings: isAccessible ? buildVideoSettings(request, content.hlsUrl, content.videoQualities, s3Active, s3BaseUrl) : null,
+        videoSettings: isAccessible ? buildNamedQualities(request, content.hlsUrl, content.videoQualities, s3Active, s3BaseUrl) : null,
         watchProgress,
       };
 
@@ -335,7 +399,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       if (currentEpisodeRaw) {
         currentEpisode = mapEpisode(currentEpisodeRaw);
         if (!currentEpisode.isLocked) {
-          currentEpisode.videoSettings = buildVideoSettings(
+          currentEpisode.videoSettings = buildNamedQualities(
             request,
             currentEpisodeRaw.hlsUrl,
             currentEpisodeRaw.videoQualities || [],

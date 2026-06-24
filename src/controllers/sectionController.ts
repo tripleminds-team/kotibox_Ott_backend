@@ -4,21 +4,34 @@ import { ContentModel } from '../models/Content';
 import { MovieModel } from '../models/Movie';
 
 const syncManualContent = async (section: any) => {
-  const model = section.contentType === 'movie' ? MovieModel : ContentModel;
   const sectionIdStr = section._id.toString();
   
   // Remove this section from all contents
-  await model.updateMany(
-    { sections: sectionIdStr },
-    { $pull: { sections: sectionIdStr } }
-  );
+  if (section.contentType === 'movie') {
+    await MovieModel.updateMany(
+      { sections: sectionIdStr },
+      { $pull: { sections: sectionIdStr } }
+    );
+  } else {
+    await ContentModel.updateMany(
+      { sections: sectionIdStr },
+      { $pull: { sections: sectionIdStr } }
+    );
+  }
   
   // Add this section to the new manual content IDs
   if (section.manualContentIds && section.manualContentIds.length > 0) {
-    await model.updateMany(
-      { _id: { $in: section.manualContentIds } },
-      { $addToSet: { sections: sectionIdStr } }
-    );
+    if (section.contentType === 'movie') {
+      await MovieModel.updateMany(
+        { _id: { $in: section.manualContentIds } },
+        { $addToSet: { sections: sectionIdStr } }
+      );
+    } else {
+      await ContentModel.updateMany(
+        { _id: { $in: section.manualContentIds } },
+        { $addToSet: { sections: sectionIdStr } }
+      );
+    }
   }
 };
 
@@ -93,11 +106,17 @@ export const deleteSection = async (request: FastifyRequest, reply: FastifyReply
       reply.status(404).send({ success: false, error: 'Section not found' });
       return;
     }
-    const model = section.contentType === 'movie' ? MovieModel : ContentModel;
-    await model.updateMany(
-      { sections: section._id.toString() },
-      { $pull: { sections: section._id.toString() } }
-    );
+    if (section.contentType === 'movie') {
+      await MovieModel.updateMany(
+        { sections: section._id.toString() },
+        { $pull: { sections: section._id.toString() } }
+      );
+    } else {
+      await ContentModel.updateMany(
+        { sections: section._id.toString() },
+        { $pull: { sections: section._id.toString() } }
+      );
+    }
     reply.send({ success: true, message: 'Section deleted successfully' });
   } catch (error) {
     request.log.error(error);

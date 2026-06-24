@@ -31,8 +31,10 @@ export interface IMovie extends Document {
   rejectedAt?: Date;
   createdBy?: mongoose.Types.ObjectId;
   hlsUrl?: string;
+  videoUrl?: string;
+  hlsS3Prefix?: string;
   videoQualities?: Array<{
-    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p' | '4k';
+    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p' | '1440p' | '2160p';
     url: string;
     size: number;
   }>;
@@ -106,9 +108,11 @@ const MovieSchema = new Schema<IMovie>(
     rejectedAt: Date,
     createdBy: { type: Schema.Types.ObjectId, ref: 'AdminUser' },
     hlsUrl: String,
+    videoUrl: String,
+    hlsS3Prefix: String,
     videoQualities: [
       {
-        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p', '4k'] },
+        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'] },
         url: String,
         size: Number,
       },

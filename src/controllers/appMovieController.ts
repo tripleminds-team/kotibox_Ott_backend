@@ -9,6 +9,7 @@ import { UserDownloadModel } from '../models/UserDownload';
 import { logger } from '../lib/logger';
 import { buildShareUrl } from '../lib/config';
 import { isS3Configured, getS3PublicUrl } from '../lib/s3';
+import { QUALITY_LABELS, QUALITY_PLAN_GATE } from './watchController';
 
 // Helper to convert relative URLs to absolute URLs
 const toAbsoluteUrl = (
@@ -172,16 +173,44 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
     const hlsUrl = movie.hlsUrl || null;
     const qualities: any[] = movie.videoQualities || [];
 
+    // Sort qualities in the correct playback order (144p → 4K)
+    const QUALITY_ORDER = ['144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'];
+    const sortedQualities = [...qualities].sort(
+      (a, b) => QUALITY_ORDER.indexOf(a.quality) - QUALITY_ORDER.indexOf(b.quality)
+    );
+
     const videoSettings = hlsUrl
       ? [
-          { key: 'auto', label: 'Auto', description: 'Adjusts quality automatically', url: toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl) },
-          ...qualities.map((q: any) => {
-            const sizeMB = q.size ? `${Math.round(q.size / (1024 * 1024))} MB` : 'N/A';
+          {
+            key: 'auto',
+            label: 'Auto',
+            description: 'Adjusts quality automatically based on your connection',
+            url: toAbsoluteUrl(request, hlsUrl, s3Active, s3BaseUrl),
+            requiresPlan: 'free',
+            isLocked: false,
+          },
+          ...sortedQualities.map((q: any) => {
+            const sizeMB = q.size ? `${Math.round(q.size / (1024 * 1024))} MB` : null;
+            const label = QUALITY_LABELS[q.quality] || q.quality;
+            const requiredPlan = QUALITY_PLAN_GATE[q.quality] || 'free';
+            // isLocked: currently always false — flip to real check when subscriptions go live
+            const isLocked = false;
+            const description = q.quality === '144p' ? 'Very low quality — for slow connections' :
+                                q.quality === '240p' ? 'Low quality — saves data' :
+                                q.quality === '360p' ? 'Low quality' :
+                                q.quality === '480p' ? 'Standard definition' :
+                                q.quality === '720p' ? 'High definition' :
+                                q.quality === '1080p' ? 'Full HD — recommended' :
+                                q.quality === '1440p' ? '2K — requires fast connection' :
+                                q.quality === '2160p' ? '4K Ultra HD — requires very fast connection' :
+                                `Stream at ${label}`;
             return {
               key: q.quality,
-              label: q.quality === '4k' ? '4K' : q.quality.toUpperCase(),
-              description: `${q.quality.toUpperCase()} quality option (${sizeMB})`,
+              label,
+              description: sizeMB ? `${description} (${sizeMB})` : description,
               url: toAbsoluteUrl(request, q.url, s3Active, s3BaseUrl),
+              requiresPlan: requiredPlan,
+              isLocked,
             };
           })
         ]

@@ -134,6 +134,8 @@ export const createMovie = async (request: FastifyRequest, reply: FastifyReply) 
     const isRawLocalVideo = isLocalPath && !body.hlsUrl.endsWith('.m3u8');
     if (isRawLocalVideo) {
       body.processingStatus = 'queued';
+    } else {
+      body.processingStatus = 'ready';
     }
 
     const movie = await MovieModel.create(body);
@@ -174,6 +176,8 @@ export const updateMovie = async (request: FastifyRequest, reply: FastifyReply) 
     const isRawLocalVideo = isLocalPath && !body.hlsUrl.endsWith('.m3u8') && body.hlsUrl !== (existingMovie as any).hlsUrl;
     if (isRawLocalVideo) {
       body.processingStatus = 'queued';
+    } else if (body.hlsUrl) {
+      body.processingStatus = 'ready';
     }
 
     const movie = await MovieModel.findByIdAndUpdate(
@@ -454,6 +458,47 @@ export const toggleTrending = async (request: FastifyRequest, reply: FastifyRepl
     });
   } catch (error: any) {
     logger.error({ error }, 'Error toggling trending status');
+    return reply.status(500).send({ success: false, error: error.message });
+  }
+};
+
+// Get movie HLS processing status — lightweight polling endpoint for admin panel
+export const getMovieProcessingStatus = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { id } = request.params as { id: string };
+
+    const movie = await MovieModel.findById(id)
+      .select('processingStatus processingError hlsUrl hlsS3Prefix videoQualities status title')
+      .lean();
+
+    if (!movie) {
+      return reply.status(404).send({ success: false, error: 'Movie not found' });
+    }
+
+    const qualities = (movie.videoQualities || []).map((q: any) => ({
+      quality: q.quality,
+      url:     q.url,
+      size:    q.size,
+    }));
+
+    return reply.send({
+      success: true,
+      data: {
+        id:               movie._id?.toString(),
+        title:            movie.title,
+        status:           movie.status,
+        processingStatus: movie.processingStatus || 'queued',
+        processingError:  movie.processingError || null,
+        hlsUrl:           movie.hlsUrl || null,
+        hlsS3Prefix:      (movie as any).hlsS3Prefix || null,
+        availableQualities: qualities,
+        qualityCount:     qualities.length,
+        isReady:          movie.processingStatus === 'ready',
+        isFailed:         movie.processingStatus === 'failed',
+      },
+    });
+  } catch (error: any) {
+    logger.error({ error }, 'Error getting movie processing status');
     return reply.status(500).send({ success: false, error: error.message });
   }
 };

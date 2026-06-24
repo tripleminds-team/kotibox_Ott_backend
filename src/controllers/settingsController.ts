@@ -10,13 +10,47 @@ async function getOrCreateSettings() {
   return settings;
 }
 
-export const getSettings = async (_request: FastifyRequest, reply: FastifyReply) => {
+export const getSettings = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const settings = await getOrCreateSettings();
-    return reply.send({
-      success: true,
-      data: settings
-    });
+    
+    // Check if requester is an admin with settings view permission
+    let isAdmin = false;
+    try {
+      await request.jwtVerify();
+      const decodedUser = request.user as { id: string; role: string };
+      if (decodedUser?.id) {
+        const { checkUserPermission } = await import('../middlewares/rbac');
+        const permResult = await checkUserPermission(decodedUser.id, 'settings', 'canView');
+        if (permResult.allowed) {
+          isAdmin = true;
+        }
+      }
+    } catch {
+      // Not logged in or not an admin
+    }
+
+    if (isAdmin) {
+      return reply.send({
+        success: true,
+        data: settings
+      });
+    } else {
+      // Filter out sensitive fields for public settings
+      const publicSettings = settings.toObject ? settings.toObject() : { ...settings };
+      const sensitiveFields = [
+        'mailEmail', 'mailDriver', 'mailHost', 'mailPort', 'mailEncryption', 'mailUsername', 'mailPassword', 'mailFrom', 'mailFromName',
+        'awsAccessKeyId', 'awsSecretAccessKey', 'awsRegion', 'awsBucket', 'awsPathStyleEndpoint', 'bunnyStorageZone', 'bunnyAccessKey',
+        'fcmServerKey', 'fcmSenderId', 'firebaseApiKey', 'firebaseProjectId', 'firebaseAppId'
+      ];
+      for (const field of sensitiveFields) {
+        delete publicSettings[field];
+      }
+      return reply.send({
+        success: true,
+        data: publicSettings
+      });
+    }
   } catch (error: any) {
     console.error(error);
     return reply.status(500).send({ success: false, error: error.message });

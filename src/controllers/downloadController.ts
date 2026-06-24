@@ -101,7 +101,7 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
       title = movie.title;
       thumbnail = toAbsoluteUrl(request, movie.thumbnail || '', s3Active, s3BaseUrl) || '';
       duration = movie.duration || 0;
-      downloadUrl = toAbsoluteUrl(request, movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
+      downloadUrl = toAbsoluteUrl(request, movie.videoUrl || movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
       qualities = (movie.videoQualities || []).map((q: any) => ({
         quality: q.quality,
         label: q.quality.toUpperCase(),
@@ -148,7 +148,7 @@ export const requestDownload = async (request: FastifyRequest, reply: FastifyRep
       parentTitle = drama.title;
       thumbnail = toAbsoluteUrl(request, episode.thumbnail || drama.thumbnail || '', s3Active, s3BaseUrl) || '';
       duration = episode.duration || 0;
-      downloadUrl = toAbsoluteUrl(request, episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
+      downloadUrl = toAbsoluteUrl(request, episode.sourceVideoUrl || episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
       qualities = (episode.videoQualities || []).map((q: any) => ({
         quality: q.quality,
         label: q.quality.toUpperCase(),
@@ -227,7 +227,7 @@ export const getDownloadList = async (request: FastifyRequest, reply: FastifyRep
           title = movie.title;
           thumbnail = toAbsoluteUrl(request, movie.thumbnail || '', s3Active, s3BaseUrl) || '';
           duration = movie.duration || 0;
-          downloadUrl = toAbsoluteUrl(request, movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
+          downloadUrl = toAbsoluteUrl(request, movie.videoUrl || movie.hlsUrl || '', s3Active, s3BaseUrl) || '';
           qualities = (movie.videoQualities || []).map((q: any) => ({
             quality: q.quality,
             label: q.quality.toUpperCase(),
@@ -247,7 +247,7 @@ export const getDownloadList = async (request: FastifyRequest, reply: FastifyRep
           parentTitle = drama.title;
           thumbnail = toAbsoluteUrl(request, episode.thumbnail || drama.thumbnail || '', s3Active, s3BaseUrl) || '';
           duration = episode.duration || 0;
-          downloadUrl = toAbsoluteUrl(request, episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
+          downloadUrl = toAbsoluteUrl(request, episode.sourceVideoUrl || episode.hlsUrl || '', s3Active, s3BaseUrl) || '';
           qualities = (episode.videoQualities || []).map((q: any) => ({
             quality: q.quality,
             label: q.quality.toUpperCase(),
@@ -271,8 +271,8 @@ export const getDownloadList = async (request: FastifyRequest, reply: FastifyRep
           duration: duration,
           downloadUrl: downloadUrl,
           videoQualities: qualities,
-          status: dl.status || 'pending',
-          progress: dl.progress || 0,
+          status: (dl as any).status || 'pending',
+          progress: (dl as any).progress || 0,
           createdAt: dl.createdAt
         });
       }

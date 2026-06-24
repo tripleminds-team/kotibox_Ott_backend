@@ -12,8 +12,9 @@ export interface IEpisode extends Document {
   sourceStartSeconds?: number;
   sourceEndSeconds?: number;
   hlsUrl?: string;
+  hlsS3Prefix?: string;
   videoQualities?: Array<{
-    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p';
+    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p' | '1440p' | '2160p';
     url: string;
     size: number;
   }>;
@@ -22,8 +23,8 @@ export interface IEpisode extends Document {
   views: number;
   likes: number;
   downloadAllowed: boolean;
-  subtitleLanguages: string[];
-  audioLanguages: string[];
+  subtitleLanguages: mongoose.Types.ObjectId[];
+  audioLanguages: mongoose.Types.ObjectId[];
   airDate?: Date;
   isFree: boolean;
   isLocked: boolean;
@@ -45,9 +46,10 @@ const EpisodeSchema = new Schema<IEpisode>(
     sourceStartSeconds: Number,
     sourceEndSeconds: Number,
     hlsUrl: String,
+    hlsS3Prefix: String,
     videoQualities: [
       {
-        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p'] },
+        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'] },
         url: String,
         size: Number,
       },
@@ -57,8 +59,8 @@ const EpisodeSchema = new Schema<IEpisode>(
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     downloadAllowed: { type: Boolean, default: true },
-    subtitleLanguages: { type: [String], default: [] },
-    audioLanguages: { type: [String], default: [] },
+    subtitleLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
+    audioLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
     airDate: Date,
     isFree: { type: Boolean, default: false },
     isLocked: { type: Boolean, default: true, index: true },

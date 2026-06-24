@@ -1,4 +1,6 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import fs from 'fs';
+import path from 'path';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from './logger';
 import { SettingsModel } from '../models/Settings';
@@ -149,4 +151,71 @@ export async function getS3PublicUrl(key: string): Promise<string> {
   return settings.pathStyle 
     ? `https://s3.${settings.region}.amazonaws.com/${settings.bucket}/${cleanKey}`
     : `https://${settings.bucket}.s3.${settings.region}.amazonaws.com/${cleanKey}`;
+}
+
+/**
+ * Returns the base public URL for the S3 bucket (no trailing slash).
+ * Used to prefix HLS master.m3u8 and individual playlist URLs.
+ */
+export async function getHlsPublicBaseUrl(): Promise<string> {
+  const settings = await getS3Settings();
+  const base = settings.pathStyle
+    ? `https://s3.${settings.region}.amazonaws.com/${settings.bucket}`
+    : `https://${settings.bucket}.s3.${settings.region}.amazonaws.com`;
+  return base;
+}
+
+/**
+ * Recursively uploads an entire local HLS output folder to S3.
+ * Preserves the relative directory structure under the given S3 prefix.
+ *
+ * @param localFolderPath   Absolute path to the local HLS output folder.
+ * @param s3Prefix          S3 key prefix, e.g. "hls/movies/abc123".
+ * @returns                 Number of files uploaded.
+ */
+export async function uploadHlsFolderToS3(localFolderPath: string, s3Prefix: string): Promise<number> {
+  const settings = await getS3Settings();
+  if (!settings.accessKeyId || !settings.secretAccessKey || settings.storageDriver !== 's3') {
+    throw new Error('S3 is not configured — cannot upload HLS folder');
+  }
+
+  const s3Client = await getS3Client();
+  let uploadCount = 0;
+
+  const getContentType = (filePath: string): string => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.m3u8') return 'application/x-mpegURL';
+    if (ext === '.ts')   return 'video/MP2T';
+    return 'application/octet-stream';
+  };
+
+  const uploadDir = async (dirPath: string, keyPrefix: string) => {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      const s3Key   = `${keyPrefix}/${entry.name}`;
+      if (entry.isDirectory()) {
+        await uploadDir(fullPath, s3Key);
+      } else if (entry.isFile()) {
+        const body        = fs.readFileSync(fullPath);
+        const contentType = getContentType(entry.name);
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket:      settings.bucket,
+            Key:         s3Key,
+            Body:        body,
+            ContentType: contentType,
+            // Ensure .m3u8 files are not cached aggressively by CDN/browser
+            CacheControl: ext => ext === '.m3u8' ? 'no-cache' : 'max-age=31536000',
+          } as any)
+        );
+        uploadCount++;
+        logger.debug(`Uploaded HLS file to S3: ${s3Key}`);
+      }
+    }
+  };
+
+  await uploadDir(localFolderPath, s3Prefix);
+  logger.info({ s3Prefix, uploadCount }, 'HLS folder uploaded to S3');
+  return uploadCount;
 }

@@ -144,3 +144,106 @@ export const clearWatchProgress = async (request: FastifyRequest, reply: Fastify
     });
   }
 };
+
+export const getWatchHistory = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = (request as any).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { page = '1', limit = '20' } = request.query as { page?: string; limit?: string };
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const history = await UserWatchProgressModel.find({ userId: new mongoose.Types.ObjectId(userId) })
+      .sort({ lastWatchedAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate('contentId', 'title thumbnail posterImage type badge duration') // for movies/shows
+      .populate('episodeId', 'title thumbnail episode season duration')
+      .lean();
+
+    const total = await UserWatchProgressModel.countDocuments({ userId: new mongoose.Types.ObjectId(userId) });
+
+    // Format the items 
+    const items = history.map((h: any) => {
+      // Avoid breaking if content was deleted
+      if (!h.contentId) return null;
+      
+      return {
+        id: h._id.toString(),
+        contentId: h.contentId?._id?.toString(),
+        episodeId: h.episodeId?._id?.toString() || null,
+        contentType: h.contentModelType.toLowerCase(),
+        title: h.episodeId ? h.episodeId.title : h.contentId.title,
+        showTitle: h.episodeId ? h.contentId.title : null,
+        thumbnail: h.episodeId?.thumbnail || h.contentId.thumbnail || h.contentId.posterImage,
+        season: h.episodeId?.season || null,
+        episode: h.episodeId?.episode || null,
+        progressPercent: h.progressPercent,
+        progressSeconds: h.progressSeconds,
+        durationSeconds: h.durationSeconds,
+        lastWatchedAt: h.lastWatchedAt,
+        badge: h.contentId.badge || null,
+      };
+    }).filter(Boolean); // remove any nulls from deleted content
+
+    return reply.send({
+      success: true,
+      data: {
+        items,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: Math.ceil(total / Number(limit))
+        }
+      }
+    });
+
+  } catch (error: any) {
+    logger.error({ error }, 'Error fetching watch history');
+    return reply.status(500).send({
+      success: false,
+      message: 'Failed to fetch watch history.',
+      error: error.message,
+    });
+  }
+};
+
+export const deleteWatchHistoryItem = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = (request as any).user?.id;
+    if (!userId) {
+      return reply.status(401).send({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { id } = request.params as { id: string };
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return reply.status(400).send({ success: false, message: 'Invalid history ID.' });
+    }
+
+    const deleteResult = await UserWatchProgressModel.deleteOne({
+      _id: new mongoose.Types.ObjectId(id),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (deleteResult.deletedCount === 0) {
+      return reply.status(404).send({ success: false, message: 'Watch history item not found or unauthorized.' });
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Watch history item deleted successfully.'
+    });
+
+  } catch (error: any) {
+    logger.error({ error }, 'Error deleting watch history item');
+    return reply.status(500).send({
+      success: false,
+      message: 'Failed to delete watch history item.',
+      error: error.message,
+    });
+  }
+};

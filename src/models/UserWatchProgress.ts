@@ -16,7 +16,7 @@ export interface IUserWatchProgress extends Document {
 const UserWatchProgressSchema = new Schema<IUserWatchProgress>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    contentId: { type: Schema.Types.ObjectId, required: true, index: true },
+    contentId: { type: Schema.Types.ObjectId, required: true, refPath: 'contentModelType', index: true },
     episodeId: { type: Schema.Types.ObjectId, ref: 'Episode', default: null, index: true },
     contentModelType: { type: String, enum: ['Content', 'Movie'], required: true },
     progressSeconds: { type: Number, required: true },

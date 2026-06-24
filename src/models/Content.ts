@@ -11,19 +11,22 @@ export interface IContent extends Document {
   shortDescription?: string;
   thumbnail?: string;
   bannerImage?: string;
+  posterImage?: string;
   trailerUrl?: string;
-  genres: string[];
-  languages: string[];
-  subtitleLanguages: string[];
-  audioLanguages: string[];
+  genres: mongoose.Types.ObjectId[];
+  languages: mongoose.Types.ObjectId[];
+  subtitleLanguages: mongoose.Types.ObjectId[];
+  audioLanguages: mongoose.Types.ObjectId[];
+  categories: mongoose.Types.ObjectId[];
   year?: number;
   rating?: string;
   ageRating: number;
   status: 'published' | 'draft' | 'processing' | 'moderation' | 'rejected';
   rejectionReason?: string;
   hlsUrl?: string;
+  hlsS3Prefix?: string;
   videoQualities?: Array<{
-    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p';
+    quality: '144p' | '240p' | '360p' | '480p' | '720p' | '1080p' | '1440p' | '2160p';
     url: string;
     size: number;
   }>;
@@ -36,8 +39,8 @@ export interface IContent extends Document {
   isNewContent: boolean;
   isExclusive: boolean;
   downloadAllowed: boolean;
-  cast: Array<{ name: string; role: string; photo?: string; character?: string }>;
-  crew: Array<{ name: string; role: string }>;
+  cast: Array<{ actor: mongoose.Types.ObjectId; character?: string; role?: string }>;
+  crew: Array<{ director: mongoose.Types.ObjectId; role: string }>;
   director?: string;
   producer?: string;
   studio?: string;
@@ -65,11 +68,13 @@ const ContentSchema = new Schema<IContent>(
     shortDescription: String,
     thumbnail: String,
     bannerImage: String,
+    posterImage: String,
     trailerUrl: String,
-    genres: { type: [String], default: [] },
-    languages: { type: [String], default: ['English'] },
-    subtitleLanguages: { type: [String], default: [] },
-    audioLanguages: { type: [String], default: [] },
+    genres: [{ type: Schema.Types.ObjectId, ref: 'Genre' }],
+    languages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
+    subtitleLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
+    audioLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
+    categories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
     year: Number,
     rating: String,
     ageRating: { type: Number, default: 0 },
@@ -81,9 +86,10 @@ const ContentSchema = new Schema<IContent>(
     },
     rejectionReason: String,
     hlsUrl: String,
+    hlsS3Prefix: String,
     videoQualities: [
       {
-        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p'] },
+        quality: { type: String, enum: ['144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'] },
         url: String,
         size: Number,
       },
@@ -97,8 +103,8 @@ const ContentSchema = new Schema<IContent>(
     isNewContent: { type: Boolean, default: true },
     isExclusive: { type: Boolean, default: false },
     downloadAllowed: { type: Boolean, default: true },
-    cast: [{ name: String, role: String, photo: String, character: String }],
-    crew: [{ name: String, role: String }],
+    cast: [{ actor: { type: Schema.Types.ObjectId, ref: 'Actor' }, character: String, role: String }],
+    crew: [{ director: { type: Schema.Types.ObjectId, ref: 'Director' }, role: String }],
     director: String,
     producer: String,
     studio: String,

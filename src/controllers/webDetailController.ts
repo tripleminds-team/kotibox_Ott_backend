@@ -135,19 +135,39 @@ export const getWebDetail = async (request: FastifyRequest, reply: FastifyReply)
     if (!isMovie) {
       const eps = await EpisodeModel.find({ contentId: item._id, processingStatus: 'ready' })
         .sort({ season: 1, episode: 1 })
-        .select('title description thumbnail hlsUrl duration season episode isFree')
+        .select('title description thumbnail hlsUrl sourceVideoUrl duration season episode isFree videoQualities')
         .lean();
-      episodes = eps.map((e: any) => ({
-        id: e._id.toString(),
-        title: e.title,
-        description: e.description,
-        thumbnail: e.thumbnail,
-        videoUrl: e.hlsUrl,
-        duration: e.duration ? `${e.duration}m` : '0m',
-        season: e.season,
-        episode: e.episode,
-        isFree: e.isFree,
-      }));
+      episodes = eps.map((e: any) => {
+        const epHlsUrl = e.hlsUrl || e.sourceVideoUrl;
+        const epQualities: any[] = e.videoQualities || [];
+        const epVideoSettings = epHlsUrl
+          ? [
+              { key: 'auto', label: 'Auto', description: 'Adjusts quality automatically', url: epHlsUrl },
+              ...epQualities.map((q: any) => {
+                const sizeMB = q.size ? `${Math.round(q.size / (1024 * 1024))} MB` : 'N/A';
+                return {
+                  key: q.quality,
+                  label: q.quality === '4k' ? '4K' : q.quality.toUpperCase(),
+                  description: `${q.quality.toUpperCase()} quality option (${sizeMB})`,
+                  url: q.url,
+                };
+              })
+            ]
+          : null;
+
+        return {
+          id: e._id.toString(),
+          title: e.title,
+          description: e.description,
+          thumbnail: e.thumbnail,
+          videoUrl: epHlsUrl,
+          duration: e.duration ? `${e.duration}m` : '0m',
+          season: e.season,
+          episode: e.episode,
+          isFree: e.isFree,
+          videoSettings: epVideoSettings,
+        };
+      });
     }
 
     // Fetch related content (same primary genre)

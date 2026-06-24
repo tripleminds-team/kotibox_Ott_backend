@@ -91,7 +91,22 @@ export const createEpisode = async (request: FastifyRequest, reply: FastifyReply
   try {
     const body = request.body as any;
 
+    // Check if the uploaded video is a raw MP4 or local media file (not HLS .m3u8)
+    const isLocalPath = body.sourceVideoUrl && !body.sourceVideoUrl.startsWith('http://') && !body.sourceVideoUrl.startsWith('https://');
+    const isRawLocalVideo = isLocalPath && !body.sourceVideoUrl.endsWith('.m3u8');
+    if (isRawLocalVideo) {
+      body.processingStatus = 'queued';
+    } else {
+      body.processingStatus = 'ready';
+    }
+
     const episode = await EpisodeModel.create(body);
+
+    if (isRawLocalVideo && episode.sourceVideoUrl) {
+      import('../services/videoProcessor').then(({ processEpisodesInBackground }) => {
+        processEpisodesInBackground([episode._id as Types.ObjectId], episode.sourceVideoUrl!);
+      });
+    }
 
     return reply.status(201).send({
       success: true,
@@ -108,6 +123,20 @@ export const updateEpisode = async (request: FastifyRequest, reply: FastifyReply
     const { id } = request.params as { id: string };
     const body = request.body as any;
 
+    const existingEpisode = await EpisodeModel.findById(id).lean();
+    if (!existingEpisode) {
+      return reply.status(404).send({ success: false, error: 'Episode not found' });
+    }
+
+    // Check if the sourceVideoUrl has changed to a new raw MP4 or local media file
+    const isLocalPath = body.sourceVideoUrl && !body.sourceVideoUrl.startsWith('http://') && !body.sourceVideoUrl.startsWith('https://');
+    const isRawLocalVideo = isLocalPath && !body.sourceVideoUrl.endsWith('.m3u8') && body.sourceVideoUrl !== (existingEpisode as any).sourceVideoUrl;
+    if (isRawLocalVideo) {
+      body.processingStatus = 'queued';
+    } else if (body.sourceVideoUrl || body.hlsUrl) {
+      body.processingStatus = 'ready';
+    }
+
     const episode = await EpisodeModel.findByIdAndUpdate(
       id,
       { $set: body },
@@ -116,6 +145,12 @@ export const updateEpisode = async (request: FastifyRequest, reply: FastifyReply
 
     if (!episode) {
       return reply.status(404).send({ success: false, error: 'Episode not found' });
+    }
+
+    if (isRawLocalVideo && (episode as any).sourceVideoUrl) {
+      import('../services/videoProcessor').then(({ processEpisodesInBackground }) => {
+        processEpisodesInBackground([new Types.ObjectId(id)], (episode as any).sourceVideoUrl!);
+      });
     }
 
     return reply.send({

@@ -23,6 +23,16 @@ import { PageModel } from '../models/Page';
 import { UserModel } from '../models/User';
 import { UserDownloadModel } from '../models/UserDownload';
 import { UserWishlistModel } from '../models/UserWishlist';
+import { UserLikeModel } from '../models/UserLike';
+import { UserWatchProgressModel } from '../models/UserWatchProgress';
+import { ReviewModel } from '../models/Review';
+import { NotificationLogModel } from '../models/NotificationLog';
+import { AdminNotificationModel } from '../models/AdminNotification';
+import { AdModel } from '../models/Ad';
+import { FAQModel } from '../models/FAQ';
+import { PromotionModel } from '../models/Promotion';
+import { LiveChannelModel } from '../models/LiveChannel';
+
 
 async function seedSubscriptionPlans() {
   const count = await SubscriptionPlanModel.countDocuments();
@@ -194,11 +204,40 @@ async function seedGenres() {
   logger.info('Seeded/verified default genres');
 }
 
+async function seedActorsAndDirectors() {
+  await ActorModel.deleteMany({});
+  await DirectorModel.deleteMany({});
+
+  const actorsToSeed = [
+    { name: 'Jonah Hill', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop&q=80', designation: 'Lead Actor', dateOfBirth: new Date('1983-12-20'), birthPlace: 'Los Angeles, California, USA', status: true, approvalStatus: 'published' as const },
+    { name: 'Channing Tatum', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&q=80', designation: 'Lead Actor', dateOfBirth: new Date('1980-04-26'), birthPlace: 'Cullman, Alabama, USA', status: true, approvalStatus: 'published' as const },
+    { name: 'Brie Larson', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop&q=80', designation: 'Lead Actress', dateOfBirth: new Date('1989-10-01'), birthPlace: 'Sacramento, California, USA', status: true, approvalStatus: 'published' as const },
+    { name: 'Ice Cube', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&q=80', designation: 'Supporting Actor', dateOfBirth: new Date('1969-06-15'), birthPlace: 'Los Angeles, California, USA', status: true, approvalStatus: 'published' as const },
+  ];
+  await ActorModel.insertMany(actorsToSeed);
+
+  const directorsToSeed = [
+    { name: 'Phil Lord', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop&q=80', designation: 'Director', dateOfBirth: new Date('1975-07-12'), birthPlace: 'Miami, Florida, USA', status: true, approvalStatus: 'published' as const },
+    { name: 'Christopher Miller', image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&h=300&fit=crop&q=80', designation: 'Director', dateOfBirth: new Date('1975-09-23'), birthPlace: 'Everett, Washington, USA', status: true, approvalStatus: 'published' as const },
+  ];
+  await DirectorModel.insertMany(directorsToSeed);
+  logger.info('Seeded default actors and directors');
+}
+
 async function seedSampleContent() {
   await ContentModel.deleteMany({});
 
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
+
+  const dbGenres = await GenreModel.find({ status: 'published' }).lean();
+  const genreMap = new Map(dbGenres.map(g => [g.name.toLowerCase(), g._id]));
+
+  const dbLanguages = await LanguageModel.find({}).lean();
+  const languageMap = new Map(dbLanguages.map(l => [l.name.toLowerCase(), l._id]));
+
+  const actors = await ActorModel.find().sort({ createdAt: 1 }).lean();
+  const directors = await DirectorModel.find().sort({ createdAt: 1 }).lean();
 
   const unsplashThumbnails = [
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&q=80',
@@ -283,98 +322,116 @@ async function seedSampleContent() {
 
   const dramaContent = dramas.map((drama, index) => {
     const staticId = `6a3387222e358a4c3dec${(0xda00 + index).toString(16).padStart(4, '0')}`;
+    const genreIds = [genreMap.get(drama.genre.toLowerCase()), genreMap.get('drama')].filter(Boolean);
+    const langIds = ['hindi', 'english'].map(l => languageMap.get(l)).filter(Boolean);
+    const subIds = ['hindi', 'english'].map(l => languageMap.get(l)).filter(Boolean);
+    const audioIds = ['hindi'].map(l => languageMap.get(l)).filter(Boolean);
+
     return {
-    _id: new mongoose.Types.ObjectId(staticId),
-    title: drama.title,
-    type: 'series',
-    contentType: 'drama',
-    description: `A captivating ${drama.genre.toLowerCase()} drama that will keep you hooked from the first episode to the last.`,
-    shortDescription: `${drama.genre} drama you won't forget`,
-    thumbnail: unsplashThumbnails[index % unsplashThumbnails.length],
-    bannerImage: unsplashThumbnails[(index + 2) % unsplashThumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
-    genres: [drama.genre, 'Drama'],
-    languages: ['Hindi', 'English'],
-    subtitleLanguages: ['Hindi', 'English'],
-    audioLanguages: ['Hindi'],
-    year: 2024,
-    rating: drama.genre === 'Romance' ? 'TV-14' : (drama.genre === 'Comedy' ? 'TV-PG' : 'TV-MA'),
-    ageRating: drama.genre === 'Romance' ? 13 : (drama.genre === 'Comedy' ? 10 : 17),
-    status: 'published' as const,
-    hlsUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-    views: drama.views,
-    likes: Math.floor(drama.views * 0.08),
-    shares: Math.floor(drama.views * 0.02),
-    featured: drama.featured,
-    trending: drama.trending,
-    isNewContent: drama.isNew,
-    isExclusive: index === 0,
-    downloadAllowed: index % 2 === 0,
-    cast: [
-      { name: 'Raj Kumar', role: 'Lead Actor', character: 'Hero ' + (index + 1) },
-      { name: 'Priya Sharma', role: 'Lead Actress', character: 'Heroine ' + (index + 1) },
-    ],
-    crew: [{ name: 'Vikram Singh', role: 'Director' }],
-    director: 'Vikram Singh',
-    producer: 'Amit Patel',
-    studio: 'Story TV Originals',
-    country: 'India',
-    tags: [drama.genre.toLowerCase(), 'drama', 'must-watch'],
-    imdbRating: drama.imdbRating,
-    maturityContent: index === 1 ? ['Violence', 'Strong Language'] : [],
-    seasons: 2,
-    sections: [],
-    planRequired: drama.planRequired,
-    createdAt: daysAgo(drama.daysOld),
-    updatedAt: daysAgo(Math.max(0, drama.daysOld - 5)),
-  };
+      _id: new mongoose.Types.ObjectId(staticId),
+      title: drama.title,
+      type: 'series',
+      contentType: 'drama',
+      description: `A captivating ${drama.genre.toLowerCase()} drama that will keep you hooked from the first episode to the last.`,
+      shortDescription: `${drama.genre} drama you won't forget`,
+      thumbnail: unsplashThumbnails[index % unsplashThumbnails.length],
+      bannerImage: unsplashThumbnails[(index + 2) % unsplashThumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
+      posterImage: unsplashThumbnails[(index + 1) % unsplashThumbnails.length].replace('w=400&h=600', 'w=600&h=900'),
+      genres: genreIds,
+      languages: langIds,
+      subtitleLanguages: subIds,
+      audioLanguages: audioIds,
+      categories: [],
+      year: 2024,
+      rating: drama.genre === 'Romance' ? 'TV-14' : (drama.genre === 'Comedy' ? 'TV-PG' : 'TV-MA'),
+      ageRating: drama.genre === 'Romance' ? 13 : (drama.genre === 'Comedy' ? 10 : 17),
+      status: 'published' as const,
+      hlsUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      views: drama.views,
+      likes: Math.floor(drama.views * 0.08),
+      shares: Math.floor(drama.views * 0.02),
+      featured: drama.featured,
+      trending: drama.trending,
+      isNewContent: drama.isNew,
+      isExclusive: index === 0,
+      downloadAllowed: index % 2 === 0,
+      cast: [
+        { actor: actors[0]?._id, role: 'Lead Actor', character: 'Hero ' + (index + 1) },
+        { actor: actors[1]?._id, role: 'Lead Actress', character: 'Heroine ' + (index + 1) },
+      ].filter(c => c.actor),
+      crew: [
+        { director: directors[0]?._id, role: 'Director' }
+      ].filter(c => c.director),
+      director: 'Vikram Singh',
+      producer: 'Amit Patel',
+      studio: 'Story TV Originals',
+      country: 'India',
+      tags: [drama.genre.toLowerCase(), 'drama', 'must-watch'],
+      imdbRating: drama.imdbRating,
+      maturityContent: index === 1 ? ['Violence', 'Strong Language'] : [],
+      seasons: 2,
+      sections: [],
+      planRequired: drama.planRequired,
+      createdAt: daysAgo(drama.daysOld),
+      updatedAt: daysAgo(Math.max(0, drama.daysOld - 5)),
+    };
   });
 
   const tvShowContent = tvShows.map((show, index) => {
     const staticId = `6a3387222e358a4c3dec${(0xdb00 + index).toString(16).padStart(4, '0')}`;
+    const genreIds = [genreMap.get(show.genre.toLowerCase())].filter(Boolean);
+    const langIds = ['english'].map(l => languageMap.get(l)).filter(Boolean);
+    const subIds = ['english'].map(l => languageMap.get(l)).filter(Boolean);
+    const audioIds = ['english'].map(l => languageMap.get(l)).filter(Boolean);
+
     return {
-    _id: new mongoose.Types.ObjectId(staticId),
-    title: show.title,
-    type: 'series',
-    contentType: 'series',
-    description: `A gripping ${show.genre.toLowerCase()} series that will keep you on the edge of your seat.`,
-    shortDescription: `${show.genre} series you won't forget`,
-    thumbnail: unsplashThumbnails[(index + 3) % unsplashThumbnails.length],
-    bannerImage: unsplashThumbnails[(index + 5) % unsplashThumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
-    genres: [show.genre],
-    languages: ['English'],
-    subtitleLanguages: ['English'],
-    audioLanguages: ['English'],
-    year: 2023,
-    rating: 'TV-14',
-    ageRating: 14,
-    status: 'published' as const,
-    hlsUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-    views: show.views,
-    likes: Math.floor(show.views * 0.08),
-    shares: Math.floor(show.views * 0.02),
-    featured: show.featured,
-    trending: show.trending,
-    isNewContent: show.isNew,
-    isExclusive: index === 0,
-    downloadAllowed: true,
-    cast: [
-      { name: 'John Doe', role: 'Lead Actor', character: 'Protagonist ' + (index + 1) },
-      { name: 'Jane Smith', role: 'Lead Actress', character: 'Lead ' + (index + 1) },
-    ],
-    crew: [{ name: 'Michael Brown', role: 'Director' }],
-    director: 'Michael Brown',
-    producer: 'Sarah Johnson',
-    studio: 'Global Network Studios',
-    country: 'USA',
-    tags: [show.genre.toLowerCase(), 'series', 'must-watch'],
-    imdbRating: show.imdbRating,
-    maturityContent: [],
-    seasons: 2,
-    sections: [],
-    planRequired: show.planRequired,
-    createdAt: daysAgo(show.daysOld),
-    updatedAt: daysAgo(Math.max(0, show.daysOld - 5)),
-  };
+      _id: new mongoose.Types.ObjectId(staticId),
+      title: show.title,
+      type: 'series',
+      contentType: 'series',
+      description: `A gripping ${show.genre.toLowerCase()} series that will keep you on the edge of your seat.`,
+      shortDescription: `${show.genre} series you won't forget`,
+      thumbnail: unsplashThumbnails[(index + 3) % unsplashThumbnails.length],
+      bannerImage: unsplashThumbnails[(index + 5) % unsplashThumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
+      posterImage: unsplashThumbnails[(index + 4) % unsplashThumbnails.length].replace('w=400&h=600', 'w=600&h=900'),
+      genres: genreIds,
+      languages: langIds,
+      subtitleLanguages: subIds,
+      audioLanguages: audioIds,
+      categories: [],
+      year: 2023,
+      rating: 'TV-14',
+      ageRating: 14,
+      status: 'published' as const,
+      hlsUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      views: show.views,
+      likes: Math.floor(show.views * 0.08),
+      shares: Math.floor(show.views * 0.02),
+      featured: show.featured,
+      trending: show.trending,
+      isNewContent: show.isNew,
+      isExclusive: index === 0,
+      downloadAllowed: true,
+      cast: [
+        { actor: actors[2]?._id, role: 'Lead Actor', character: 'Protagonist ' + (index + 1) },
+        { actor: actors[3]?._id, role: 'Lead Actress', character: 'Lead ' + (index + 1) },
+      ].filter(c => c.actor),
+      crew: [
+        { director: directors[1]?._id, role: 'Director' }
+      ].filter(c => c.director),
+      director: 'Michael Brown',
+      producer: 'Sarah Johnson',
+      studio: 'Global Network Studios',
+      country: 'USA',
+      tags: [show.genre.toLowerCase(), 'series', 'must-watch'],
+      imdbRating: show.imdbRating,
+      maturityContent: [],
+      seasons: 2,
+      sections: [],
+      planRequired: show.planRequired,
+      createdAt: daysAgo(show.daysOld),
+      updatedAt: daysAgo(Math.max(0, show.daysOld - 5)),
+    };
   });
 
   await ContentModel.insertMany([...dramaContent, ...tvShowContent]);
@@ -383,25 +440,12 @@ async function seedSampleContent() {
 
 async function seedMovies() {
   await MovieModel.deleteMany({});
-  await ActorModel.deleteMany({});
-  await DirectorModel.deleteMany({});
 
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);
 
-  const actorsToSeed = [
-    { name: 'Rajesh Kumar', image: 'https://i.pravatar.cc/300?img=1', designation: 'Lead Actor', dateOfBirth: new Date('1980-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
-    { name: 'Priya Sharma', image: 'https://i.pravatar.cc/300?img=5', designation: 'Lead Actress', dateOfBirth: new Date('1985-01-01'), birthPlace: 'Delhi', status: true, approvalStatus: 'published' as const },
-    { name: 'Arjun Singh', image: 'https://i.pravatar.cc/300?img=8', designation: 'Supporting Actor', dateOfBirth: new Date('1990-01-01'), birthPlace: 'Chandigarh', status: true, approvalStatus: 'published' as const },
-    { name: 'Meera Nair', image: 'https://i.pravatar.cc/300?img=9', designation: 'Supporting Actress', dateOfBirth: new Date('1988-01-01'), birthPlace: 'Kochi', status: true, approvalStatus: 'published' as const },
-  ];
-  const actors = await ActorModel.insertMany(actorsToSeed);
-
-  const directorsToSeed = [
-    { name: 'Rohit Shetty Kumar', image: 'https://i.pravatar.cc/300?img=33', designation: 'Director', dateOfBirth: new Date('1973-01-01'), birthPlace: 'Mumbai', status: true, approvalStatus: 'published' as const },
-    { name: 'Anurag Bose', image: 'https://i.pravatar.cc/300?img=36', designation: 'Director', dateOfBirth: new Date('1970-01-01'), birthPlace: 'Bhilai', status: true, approvalStatus: 'published' as const },
-  ];
-  const directors = await DirectorModel.insertMany(directorsToSeed);
+  const actors = await ActorModel.find().sort({ createdAt: 1 }).lean();
+  const directors = await DirectorModel.find().sort({ createdAt: 1 }).lean();
 
   const dbGenres = await GenreModel.find({ status: 'published' }).lean();
   const genreMap = new Map(dbGenres.map(g => [g.name.toLowerCase(), g._id]));
@@ -410,9 +454,9 @@ async function seedMovies() {
   const languageMap = new Map(dbLanguages.map(l => [l.name.toLowerCase(), l._id]));
 
   const movieData = [
-    { title: 'The Dark Knight Legacy', genre: 'Action', views: 5200000, daysOld: 45, trending: true, isNew: false, featured: true, imdb: 8.3, rating: 'TV-MA', age: 17, planRequired: 'premium' },
-    { title: 'Eternal Love', genre: 'Romance', views: 3100000, daysOld: 20, trending: true, isNew: true, featured: false, imdb: 7.6, rating: 'PG-13', age: 13, planRequired: 'basic' },
-    { title: 'Space Odyssey 2099', genre: 'Sci-Fi', views: 4400000, daysOld: 30, trending: true, isNew: true, featured: true, imdb: 8.0, rating: 'PG-13', age: 13, planRequired: 'standard' },
+    { title: '21 Jump Street', genre: 'Comedy', views: 5200000, daysOld: 45, trending: true, isNew: false, featured: true, imdb: 7.2, rating: 'R', age: 17, planRequired: 'basic', description: 'A pair of underachieving cops are sent back to a local high school to blend in and down a synthetic drug ring.', country: 'United States' },
+    { title: '22 Jump Street', genre: 'Comedy', views: 4100000, daysOld: 25, trending: true, isNew: true, featured: true, imdb: 7.0, rating: 'R', age: 17, planRequired: 'standard', description: 'After making their way through high school (twice), big changes are in store for officers Schmidt and Jenko when they go deep undercover at a local college.', country: 'United States' },
+    { title: 'The Dark Knight Legacy', genre: 'Action', views: 3100000, daysOld: 20, trending: true, isNew: true, featured: false, imdb: 9.0, rating: 'PG-13', age: 13, planRequired: 'premium', description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.', country: 'United States' },
   ];
 
   const thumbnails = [
@@ -423,24 +467,41 @@ async function seedMovies() {
 
   const movies = movieData.map((movie, index) => {
     const genreIds = [genreMap.get(movie.genre.toLowerCase())];
-    const secondaryGenreName = index === 0 ? 'thriller' : (index === 1 ? 'drama' : 'action');
+    const secondaryGenreName = index === 2 ? 'thriller' : 'action';
     if (secondaryGenreName !== movie.genre.toLowerCase() && genreMap.has(secondaryGenreName)) {
       genreIds.push(genreMap.get(secondaryGenreName));
     }
     const filteredGenreIds = genreIds.filter(Boolean);
 
-    const langNames = index === 0 ? ['hindi', 'english'] : (index === 1 ? ['hindi'] : ['english']);
+    const langNames = ['english', 'hindi'];
     const langIds = langNames.map(l => languageMap.get(l)).filter(Boolean);
 
-    const actor1 = actors[index % actors.length];
-    const actor2 = actors[(index + 2) % actors.length];
-    const cast = [
-      { actor: actor1._id, character: `Hero ${index + 1}`, role: (index % 2 === 0 ? 'Lead Actor' : 'Lead Actress') },
-      { actor: actor2._id, character: `Friend ${index + 1}`, role: 'Supporting Actor' },
-    ];
+    let cast: any[] = [];
+    if (index === 0) {
+      cast = [
+        { actor: actors[0]?._id, character: 'Morton Schmidt', role: 'Lead Actor' },
+        { actor: actors[1]?._id, character: 'Greg Jenko', role: 'Lead Actor' },
+        { actor: actors[2]?._id, character: 'Molly Tracey', role: 'Lead Actress' },
+        { actor: actors[3]?._id, character: 'Captain Dickson', role: 'Supporting Actor' },
+      ].filter(c => c.actor);
+    } else if (index === 1) {
+      cast = [
+        { actor: actors[0]?._id, character: 'Morton Schmidt', role: 'Lead Actor' },
+        { actor: actors[1]?._id, character: 'Greg Jenko', role: 'Lead Actor' },
+        { actor: actors[3]?._id, character: 'Captain Dickson', role: 'Supporting Actor' },
+      ].filter(c => c.actor);
+    } else {
+      cast = [
+        { actor: actors[0]?._id, character: 'Bruce Wayne / Batman', role: 'Lead Actor' },
+        { actor: actors[1]?._id, character: 'Harvey Dent', role: 'Lead Actor' },
+      ].filter(c => c.actor);
+    }
 
-    const director = directors[index % directors.length];
-    const crew = [{ director: director._id, role: 'Director' }];
+    const director = directors[0];
+    const crew = director ? [{ director: director._id, role: 'Director' }] : [];
+    if (index < 2 && directors[1]) {
+      crew.push({ director: directors[1]._id, role: 'Director' });
+    }
 
     const videoQualities = [
       { quality: '1080p' as const, url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', size: 120000000 },
@@ -454,7 +515,7 @@ async function seedMovies() {
       _id: new mongoose.Types.ObjectId(staticId),
       title: movie.title,
       originalTitle: movie.title,
-      description: `A gripping ${movie.genre.toLowerCase()} film that will keep you at the edge of your seat.`,
+      description: movie.description,
       shortDescription: `${movie.genre} movie you won't forget`,
       thumbnail: thumbnails[index % thumbnails.length],
       bannerImage: thumbnails[(index + 3) % thumbnails.length].replace('w=400&h=600', 'w=1200&h=600'),
@@ -464,7 +525,7 @@ async function seedMovies() {
       languages: langIds,
       subtitleLanguages: [],
       audioLanguages: [],
-      year: 2024,
+      year: index === 0 ? 2012 : (index === 1 ? 2014 : 2008),
       rating: movie.rating,
       ageRating: movie.age,
       duration: 6000 + (index % 10) * 300,
@@ -479,14 +540,14 @@ async function seedMovies() {
       trending: movie.trending,
       isNewContent: movie.isNew,
       isExclusive: index === 0,
-      downloadAllowed: index % 2 === 0,
+      downloadAllowed: true,
       sections: [],
       cast,
       crew,
-      producer: 'Producer ' + (index + 1),
-      studio: 'StreamVault Originals',
-      country: 'India',
-      tags: [movie.genre.toLowerCase(), 'movie', 'must-watch'],
+      producer: 'Neal H. Moritz',
+      studio: 'Columbia Pictures',
+      country: movie.country,
+      tags: [movie.genre.toLowerCase(), 'movie', 'comedy', 'must-watch'],
       imdbRating: movie.imdb,
       maturityContent: movie.age >= 17 ? ['Violence', 'Strong Language'] : [],
       planRequired: movie.planRequired as any,
@@ -505,7 +566,10 @@ async function seedEpisodes() {
   const content = await ContentModel.find({ type: 'series' }).lean();
   if (!content.length) return;
 
-  const episodes = [];
+  const dbLanguages = await LanguageModel.find({}).lean();
+  const languageMap = new Map(dbLanguages.map(l => [l.name.toLowerCase(), l._id]));
+
+  const episodes: any[] = [];
   
   let epIndex = 0;
   for (const item of content) {
@@ -516,6 +580,18 @@ async function seedEpisodes() {
       for (let ep = 1; ep <= episodesPerSeason; ep++) {
         const staticId = `6a3387222e358a4c3dec${(0xde00 + epIndex).toString(16).padStart(4, '0')}`;
         epIndex++;
+
+        const engLangId = languageMap.get('english');
+        const hinLangId = languageMap.get('hindi');
+
+        // Match languages via ObjectIds since item.languages are ObjectIds now
+        const itemLanguagesStr = (item.languages || []).map(l => l.toString());
+        const hasEnglish = engLangId && itemLanguagesStr.includes(engLangId.toString());
+        const hasHindi = hinLangId && itemLanguagesStr.includes(hinLangId.toString());
+
+        const subtitleLanguages = hasEnglish ? [engLangId] : [hinLangId, engLangId].filter(Boolean);
+        const audioLanguages = hasHindi ? [hinLangId] : [engLangId].filter(Boolean);
+
         episodes.push({
           _id: new mongoose.Types.ObjectId(staticId),
           contentId: item._id,
@@ -532,8 +608,8 @@ async function seedEpisodes() {
           likes: Math.floor(Math.random() * 25000) + 5000,
           shares: Math.floor(Math.random() * 5000) + 500,
           downloadAllowed: season === 1 && ep <= 2,
-          subtitleLanguages: (item.languages as string[])?.includes('English') ? ['English'] : ['Hindi', 'English'],
-          audioLanguages: (item.languages as string[])?.includes('Hindi') ? ['Hindi'] : ['English'],
+          subtitleLanguages,
+          audioLanguages,
           processingStatus: 'ready' as const,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -1013,8 +1089,8 @@ async function seedNotificationTemplates() {
 }
 
 async function seedNotifications() {
-  const count = await NotificationModel.countDocuments();
-  if (count > 0) return;
+  await NotificationModel.deleteMany({});
+
 
   const notifications = [
     {
@@ -1358,14 +1434,35 @@ async function seedUserData() {
   logger.info('Seeded user download and wishlist items for existing users');
 }
 
+async function cleanAllDummyTables() {
+  logger.info('Cleaning up user activity and dummy collections...');
+  await Promise.all([
+    UserDownloadModel.deleteMany({}),
+    UserWishlistModel.deleteMany({}),
+    UserLikeModel.deleteMany({}),
+    UserWatchProgressModel.deleteMany({}),
+    ReviewModel.deleteMany({}),
+    NotificationLogModel.deleteMany({}),
+    AdminNotificationModel.deleteMany({}),
+    AdModel.deleteMany({}),
+    FAQModel.deleteMany({}),
+    PromotionModel.deleteMany({}),
+    LiveChannelModel.deleteMany({}),
+  ]);
+  logger.info('Cleaned up 11 collections successfully.');
+}
+
 export async function seedDatabase(): Promise<void> {
   try {
+    await cleanAllDummyTables();
+
     await Promise.all([
       seedSubscriptionPlans(),
       seedCategories(),
       seedLanguages(),
       seedAdminUsers(),
       seedGenres(),
+      seedActorsAndDirectors(),
     ]);
     
     await seedSampleContent();
