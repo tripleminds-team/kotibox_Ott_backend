@@ -25,6 +25,7 @@ export interface IEpisode extends Document {
   downloadAllowed: boolean;
   subtitleLanguages: mongoose.Types.ObjectId[];
   audioLanguages: mongoose.Types.ObjectId[];
+  subtitles?: Array<{ language: mongoose.Types.ObjectId; filePath: string }>;
   airDate?: Date;
   isFree: boolean;
   isLocked: boolean;
@@ -61,6 +62,7 @@ const EpisodeSchema = new Schema<IEpisode>(
     downloadAllowed: { type: Boolean, default: true },
     subtitleLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
     audioLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
+    subtitles: [{ language: { type: Schema.Types.ObjectId, ref: 'Language' }, filePath: String }],
     airDate: Date,
     isFree: { type: Boolean, default: false },
     isLocked: { type: Boolean, default: true, index: true },

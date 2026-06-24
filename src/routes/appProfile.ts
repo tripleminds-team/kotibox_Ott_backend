@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { getAppProfile, updateVideoQuality, updatePreferredLanguage } from '../controllers/appProfileController';
+import { getAppProfile, updateVideoQuality, updatePreferredLanguage, deleteAppAccount } from '../controllers/appProfileController';
 
 const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/app/profile
@@ -10,6 +10,9 @@ const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
 
   // PUT /api/app/profile/language
   fastify.put('/profile/language', updatePreferredLanguage);
+
+  // DELETE /api/app/profile
+  fastify.delete('/profile', deleteAppAccount);
 };
 
 export default appProfileRoutes;

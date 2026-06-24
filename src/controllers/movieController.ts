@@ -64,6 +64,7 @@ export const getAllMovies = async (request: FastifyRequest, reply: FastifyReply)
         .populate('audioLanguages', 'name')
         .populate('cast.actor', 'name image')
         .populate('crew.director', 'name')
+        .populate('subtitles.language', 'name code')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -105,6 +106,7 @@ export const getMovieById = async (request: FastifyRequest, reply: FastifyReply)
       .populate('audioLanguages', 'name')
       .populate('cast.actor', 'name image designation')
       .populate('crew.director', 'name designation')
+      .populate('subtitles.language', 'name code')
       .lean();
 
     if (!movie) {
@@ -186,9 +188,15 @@ export const updateMovie = async (request: FastifyRequest, reply: FastifyReply) 
       { new: true, runValidators: true }
     );
 
-    await syncSections(id, body.sections);
+    if (!movie) {
+      return reply.status(404).send({ success: false, error: 'Movie not found' });
+    }
 
-    if (isRawLocalVideo && movie) {
+    if (body.sections !== undefined) {
+      await syncSections(id, body.sections);
+    }
+
+    if (isRawLocalVideo) {
       import('../services/videoProcessor').then(({ processMovieInBackground }) => {
         processMovieInBackground(movie._id, body.hlsUrl);
       });
@@ -202,21 +210,14 @@ export const updateMovie = async (request: FastifyRequest, reply: FastifyReply) 
       .populate('audioLanguages', 'name')
       .populate('cast.actor', 'name image')
       .populate('crew.director', 'name')
+      .populate('subtitles.language', 'name code')
       .lean();
-
-    if (!movie) {
-      return reply.status(404).send({ success: false, error: 'Movie not found' });
-    }
-
-    if (body.sections !== undefined) {
-      await syncSections(id, body.sections);
-    }
 
     return reply.send({
       success: true,
       data: {
-        ...movie,
-        id: movie._id?.toString(),
+        ...updatedMovie,
+        id: updatedMovie?._id?.toString(),
       },
     });
   } catch (error: any) {

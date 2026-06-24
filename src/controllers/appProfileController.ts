@@ -10,6 +10,9 @@ import { UserWishlistModel } from '../models/UserWishlist';
 import { UserLikeModel } from '../models/UserLike';
 import { MovieModel } from '../models/Movie';
 import { EpisodeModel } from '../models/Episode';
+import { UserWatchProgressModel } from '../models/UserWatchProgress';
+import { ReviewModel } from '../models/Review';
+import { SubscriptionModel } from '../models/Subscription';
 import { logger } from '../lib/logger';
 
 // Optional user lookup helper
@@ -353,6 +356,8 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
       shareAppUrl: 'https://play.google.com/store/apps/details?id=com.xoto.ott',
       privacyPolicy: privacyPage?.content || '',
       termsOfService: termsPage?.content || '',
+      deleteAccountTitle: 'Delete Account',
+      deleteAccountDescription: 'Permanently delete your account and all associated data.',
       appVersion: 'V1.2.4',
     };
 
@@ -459,5 +464,45 @@ export const updatePreferredLanguage = async (request: FastifyRequest, reply: Fa
   } catch (error: any) {
     logger.error({ error }, 'Error updating preferred language');
     return reply.status(500).send({ success: false, message: 'Failed to update preferred language' });
+  }
+};
+
+// ── DELETE App Account ──────────────────────────────────────────────────────
+export const deleteAppAccount = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ success: false, message: 'Unauthorized' });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // 1. Delete user from UserModel
+    const deletedUser = await UserModel.findByIdAndDelete(userObjectId);
+    if (!deletedUser) {
+      return reply.status(404).send({ success: false, message: 'User not found' });
+    }
+
+    // 2. Clean up associated user data across all collections
+    await Promise.all([
+      UserWatchProgressModel.deleteMany({ userId: userObjectId }),
+      UserDownloadModel.deleteMany({ userId: userObjectId }),
+      UserWishlistModel.deleteMany({ userId: userObjectId }),
+      UserLikeModel.deleteMany({ userId: userObjectId }),
+      ReviewModel.deleteMany({ userId: userObjectId }),
+      SubscriptionModel.deleteMany({ userId: userObjectId }),
+    ]);
+
+    return reply.send({
+      success: true,
+      message: 'Account and all associated data deleted successfully'
+    });
+  } catch (error: any) {
+    logger.error({ error }, 'Error deleting app account');
+    return reply.status(500).send({
+      success: false,
+      message: 'Failed to delete account',
+      error: error.message
+    });
   }
 };

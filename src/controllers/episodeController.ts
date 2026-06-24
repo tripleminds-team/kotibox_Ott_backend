@@ -40,6 +40,9 @@ export const getAllEpisodes = async (request: FastifyRequest, reply: FastifyRepl
     const [episodes, total] = await Promise.all([
       EpisodeModel.find(filter)
         .populate('contentId', 'title thumbnail contentType type')
+        .populate('subtitleLanguages', 'name code')
+        .populate('audioLanguages', 'name code')
+        .populate('subtitles.language', 'name code')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -71,6 +74,9 @@ export const getEpisodeById = async (request: FastifyRequest, reply: FastifyRepl
 
     const episode = await EpisodeModel.findById(id)
       .populate('contentId', 'title thumbnail contentType type')
+      .populate('subtitleLanguages', 'name code')
+      .populate('audioLanguages', 'name code')
+      .populate('subtitles.language', 'name code')
       .lean();
 
     if (!episode) {

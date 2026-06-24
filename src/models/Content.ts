@@ -19,6 +19,7 @@ export interface IContent extends Document {
   audioLanguages: mongoose.Types.ObjectId[];
   categories: mongoose.Types.ObjectId[];
   year?: number;
+  releaseDate?: Date;
   rating?: string;
   ageRating: number;
   status: 'published' | 'draft' | 'processing' | 'moderation' | 'rejected';
@@ -41,6 +42,7 @@ export interface IContent extends Document {
   downloadAllowed: boolean;
   cast: Array<{ actor: mongoose.Types.ObjectId; character?: string; role?: string }>;
   crew: Array<{ director: mongoose.Types.ObjectId; role: string }>;
+  crewMembers?: Array<{ crewMember: mongoose.Types.ObjectId; role: string }>;
   director?: string;
   producer?: string;
   studio?: string;
@@ -53,6 +55,7 @@ export interface IContent extends Document {
   slug?: string;
   metaTitle?: string;
   metaDescription?: string;
+  seoImage?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +79,7 @@ const ContentSchema = new Schema<IContent>(
     audioLanguages: [{ type: Schema.Types.ObjectId, ref: 'Language' }],
     categories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
     year: Number,
+    releaseDate: Date,
     rating: String,
     ageRating: { type: Number, default: 0 },
     status: {
@@ -105,6 +109,7 @@ const ContentSchema = new Schema<IContent>(
     downloadAllowed: { type: Boolean, default: true },
     cast: [{ actor: { type: Schema.Types.ObjectId, ref: 'Actor' }, character: String, role: String }],
     crew: [{ director: { type: Schema.Types.ObjectId, ref: 'Director' }, role: String }],
+    crewMembers: { type: [{ crewMember: { type: Schema.Types.ObjectId, ref: 'Crew' }, role: String }], default: [] },
     director: String,
     producer: String,
     studio: String,
@@ -117,6 +122,7 @@ const ContentSchema = new Schema<IContent>(
     slug: { type: String, index: true },
     metaTitle: String,
     metaDescription: String,
+    seoImage: String,
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

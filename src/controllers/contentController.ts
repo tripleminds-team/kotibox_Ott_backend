@@ -51,7 +51,19 @@ export const getAllContents = async (request: FastifyRequest, reply: FastifyRepl
     }
 
     const [contents, total] = await Promise.all([
-      ContentModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      ContentModel.find(filter)
+        .populate('genres', 'name image')
+        .populate('categories', 'name thumbnail')
+        .populate('languages', 'name code')
+        .populate('subtitleLanguages', 'name code')
+        .populate('audioLanguages', 'name code')
+        .populate('cast.actor', 'name image designation')
+        .populate('crew.director', 'name image designation')
+        .populate('crewMembers.crewMember', 'name image designation')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       ContentModel.countDocuments(filter),
     ]);
 
@@ -86,7 +98,16 @@ export const getContentById = async (request: FastifyRequest, reply: FastifyRepl
   try {
     const { id } = request.params as { id: string };
 
-    const content = await ContentModel.findById(id).lean();
+    const content = await ContentModel.findById(id)
+      .populate('genres', 'name image')
+      .populate('categories', 'name thumbnail')
+      .populate('languages', 'name code')
+      .populate('subtitleLanguages', 'name code')
+      .populate('audioLanguages', 'name code')
+      .populate('cast.actor', 'name image designation')
+      .populate('crew.director', 'name image designation')
+      .populate('crewMembers.crewMember', 'name image designation')
+      .lean();
     if (!content) {
       return reply.status(404).send({ success: false, error: 'Content not found' });
     }
