@@ -339,7 +339,8 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
     // Helper: build full API URL if slug exists in DB, otherwise null
     const getPageUrl = (slug: string): string | null => {
       const found = pages.find(p => p.slug === slug);
-      return found ? `http://3.110.55.185/api/pages/${found.slug}` : null;
+      const baseUrl = `${request.protocol}://${request.headers.host || request.hostname}`;
+      return found ? `${baseUrl}/api/pages/${found.slug}` : null;
     };
 
     // Fetch platform/contact info from settings
@@ -348,6 +349,8 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
     const contactEmail = dbSettings?.mailFrom || dbSettings?.mailEmail || 'support@kotibox.com';
     const shareAppText = `Watch amazing short dramas and movies on ${platformName}!`;
 
+    const baseUrl = `${request.protocol}://${request.headers.host || request.hostname}`;
+
     const appSettings = {
       shareAppTitle: 'Share the App',
       shareAppText,
@@ -355,11 +358,11 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
       links: [
         {
           title: 'Privacy Policy',
-          url: getPageUrl('privacy-policy') || `http://3.110.55.185/api/pages/privacy-policy`
+          url: getPageUrl('privacy-policy') || `${baseUrl}/api/pages/privacy-policy`
         },
         {
           title: 'Terms & Conditions',
-          url: getPageUrl('terms-of-service') || `http://3.110.55.185/api/pages/terms-of-service`
+          url: getPageUrl('terms-of-service') || `${baseUrl}/api/pages/terms-of-service`
         },
         {
           title: 'Contact Us',
@@ -367,7 +370,7 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
         },
         {
           title: 'Help Center',
-          url: getPageUrl('help') || `http://3.110.55.185/api/pages/help`
+          url: getPageUrl('help') || `${baseUrl}/api/pages/help`
         },
       ],
       appVersion: 'V1.2.4',
