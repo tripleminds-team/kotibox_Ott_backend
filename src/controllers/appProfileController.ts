@@ -333,13 +333,13 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
       type: 'drama'
     }));
 
-    // 4. App Links / Pages — resolve web page URLs
+    // 4. App Links / Pages — resolve API URLs
     const pages = await PageModel.find({ status: 'published' }).lean();
 
-    // Helper: build full web page URL
-    const getWebPageUrl = (slug: string): string => {
+    // Helper: build full API URL
+    const getPageUrl = (slug: string): string => {
       const baseUrl = `${request.protocol}://${request.headers.host || request.hostname}`;
-      return `${baseUrl}/page/${slug}`;
+      return `${baseUrl}/api/pages/${slug}`;
     };
 
     // Fetch platform/contact info from settings
@@ -350,28 +350,31 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
 
     const baseUrl = `${request.protocol}://${request.headers.host || request.hostname}`;
 
+    const privacyPage = pages.find(p => p.slug === 'privacy-policy');
+    const termsPage = pages.find(p => p.slug === 'terms-of-service');
+
     const appSettings = {
       shareAppTitle: 'Share the App',
       shareAppText,
       shareAppUrl: 'https://play.google.com/store/apps/details?id=com.xoto.ott',
-      privacyPolicy: getWebPageUrl('privacy-policy'),
-      termsOfService: getWebPageUrl('terms-of-service'),
+      privacyPolicy: privacyPage?.content || '',
+      termsOfService: termsPage?.content || '',
       links: [
         {
           title: 'Privacy Policy',
-          url: getWebPageUrl('privacy-policy')
+          url: getPageUrl('privacy-policy')
         },
         {
           title: 'Terms & Conditions',
-          url: getWebPageUrl('terms-of-service')
+          url: getPageUrl('terms-of-service')
         },
         {
           title: 'Contact Us',
-          url: pages.find(p => p.slug === 'contact') ? getWebPageUrl('contact') : `mailto:${contactEmail}`
+          url: pages.find(p => p.slug === 'contact') ? getPageUrl('contact') : `mailto:${contactEmail}`
         },
         {
           title: 'Help Center',
-          url: getWebPageUrl('help')
+          url: getPageUrl('help')
         },
       ],
       appVersion: 'V1.2.4',
