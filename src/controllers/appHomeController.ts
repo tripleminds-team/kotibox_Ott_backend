@@ -152,9 +152,9 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
       }
     }
 
-    // Lookup corresponding Language document ObjectId if tab is movie
+    // Lookup corresponding Language document ObjectId
     let targetLanguageId: mongoose.Types.ObjectId | null = null;
-    if (tab === 'movie' && preferredLanguage) {
+    if (preferredLanguage) {
       const langDoc = await LanguageModel.findOne({ name: new RegExp(`^${preferredLanguage}$`, 'i') }).lean();
       if (langDoc) {
         targetLanguageId = langDoc._id as mongoose.Types.ObjectId;
@@ -207,8 +207,8 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
 
       if (tab === 'drama') {
         const baseFilter: any = { type: 'series', status: 'published', contentType: 'drama' };
-        if (preferredLanguage) {
-          baseFilter.languages = preferredLanguage;
+        if (targetLanguageId) {
+          baseFilter.languages = targetLanguageId;
         }
         
         const filter = buildFilter(baseFilter);
@@ -220,7 +220,7 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
         }
 
         // Fallback if no matching language content
-        if (content.length === 0 && preferredLanguage) {
+        if (content.length === 0 && targetLanguageId) {
           const fallbackBase = { type: 'series', status: 'published', contentType: 'drama' };
           const fallbackFilter = buildFilter(fallbackBase);
           if (fallbackFilter) {

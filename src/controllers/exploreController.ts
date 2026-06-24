@@ -157,7 +157,7 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
 
     // Lookup corresponding Language document ObjectId if tab is movie
     let targetLanguageId: any = null;
-    if (contentType === 'movie' && preferredLanguage) {
+    if (preferredLanguage) {
       const mongoose = await import('mongoose');
       const langDoc = await LanguageModel.findOne({ name: new RegExp(`^${preferredLanguage}$`, 'i') }).lean();
       if (langDoc) {
@@ -191,8 +191,8 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
       }
     } else {
       const langFilter = { ...filter };
-      if (preferredLanguage) {
-        langFilter.languages = preferredLanguage;
+      if (targetLanguageId) {
+        langFilter.languages = targetLanguageId;
       }
       rawContents = await ContentModel.find(langFilter)
         .sort(sortBy)
@@ -201,7 +201,7 @@ export const getExplore = async (request: FastifyRequest, reply: FastifyReply) =
         .lean();
 
       // Fallback if no matching language content
-      if (rawContents.length === 0 && preferredLanguage) {
+      if (rawContents.length === 0 && targetLanguageId) {
         rawContents = await ContentModel.find(filter)
           .sort(sortBy)
           .skip(offset)

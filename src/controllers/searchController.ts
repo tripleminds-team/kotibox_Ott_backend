@@ -67,14 +67,14 @@ export const getRecommendations = async (preferredLanguage: string) => {
 
   // Fetch recommended dramas/series (language filtered)
   const dramaFilter: any = { status: 'published', type: 'series' };
-  if (preferredLanguage) dramaFilter.languages = preferredLanguage;
+  if (targetLanguageId) dramaFilter.languages = targetLanguageId;
   let recDramas = await ContentModel.find(dramaFilter)
     .sort({ views: -1, createdAt: -1 })
     .limit(6)
     .lean();
 
   // Fallback for dramas if no match in target language
-  if (recDramas.length === 0 && preferredLanguage) {
+  if (recDramas.length === 0 && targetLanguageId) {
     recDramas = await ContentModel.find({ status: 'published', type: 'series' })
       .sort({ views: -1, createdAt: -1 })
       .limit(6)
