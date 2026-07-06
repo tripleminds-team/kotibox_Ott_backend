@@ -5,6 +5,7 @@ import { SectionModel } from '../models/Section';
 import { Types } from 'mongoose';
 import { logger } from '../lib/logger';
 import { createEpisodeSlices } from './categoryController';
+import { toLocalUploadPath } from '../services/videoProcessor';
 
 const syncSections = async (contentIdStr: string, sections: string[] | undefined) => {
   await SectionModel.updateMany(
@@ -240,7 +241,7 @@ export const appendContentVideo = async (request: FastifyRequest, reply: Fastify
       return reply.status(404).send({ success: false, error: 'Content not found' });
     }
 
-    let reelDurationMinutes = 3;
+    let reelDurationMinutes = 3.5;
     let totalDurationMinutes: number | undefined;
     let freeEpisodeCount: number | undefined;
     let lockEpisodes = true;
@@ -251,9 +252,9 @@ export const appendContentVideo = async (request: FastifyRequest, reply: Fastify
     for await (const part of (request as any).parts()) {
       if (part.type === 'field') {
         if (part.fieldname === 'reelDurationMinutes') {
-          const v = Number(part.value) || 3;
-          // Short dramas: cap episode duration at 3 minutes
-          reelDurationMinutes = content.contentType === 'drama' ? Math.min(v, 3) : v;
+          const v = Number(part.value) || 3.5;
+          // Short dramas: cap episode duration at 3 minutes 30 seconds
+          reelDurationMinutes = content.contentType === 'drama' ? Math.min(v, 3.5) : v;
         }
         if (part.fieldname === 'totalDurationMinutes') {
           const v = Number(part.value);
@@ -295,7 +296,7 @@ export const appendContentVideo = async (request: FastifyRequest, reply: Fastify
     const episodes = await createEpisodeSlices({
       contentId: content._id as Types.ObjectId,
       sourceVideoUrl,
-      sourceVideoPath: sourceVideoUrl,
+      sourceVideoPath: toLocalUploadPath(sourceVideoUrl) || sourceVideoUrl,
       reelDurationMinutes,
       totalDurationMinutes,
       freeEpisodeCount,

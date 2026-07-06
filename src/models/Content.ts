@@ -1,4 +1,5 @@
 import { adminAuditPlugin } from '../middlewares/adminAuditPlugin';
+import { mediaLinkerPlugin } from '../middlewares/mediaLinkerPlugin';
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IContent extends Document {
@@ -133,4 +134,5 @@ ContentSchema.index({ genres: 1 });
 ContentSchema.index({ trending: 1, featured: 1 });
 
 ContentSchema.plugin(adminAuditPlugin);
+ContentSchema.plugin(mediaLinkerPlugin);
 export const ContentModel = mongoose.model<IContent>('Content', ContentSchema);

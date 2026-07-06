@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import type { FastifyRequest } from 'fastify';
 import { MediaFileModel } from '../models/MediaFile';
@@ -130,6 +131,8 @@ export const saveFileFromPart = async (
     source?: string;
     sourceId?: string;
     folderId?: string;
+    contentName?: string;
+    contentType?: string;
   }
 ): Promise<UploadedFileInfo> => {
   const typeConfig = UPLOAD_TYPES[uploadType];
@@ -165,10 +168,35 @@ export const saveFileFromPart = async (
     }
     const buffer = Buffer.concat(chunks);
     const fileSize = buffer.length;
+    const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
     // Deduplication check for S3
-    const existingFile = await MediaFileModel.findOne({ name: part.filename, fileSize });
+    const existingFile = await MediaFileModel.findOne({
+      $or: [
+        { contentHash },
+        { name: part.filename, fileSize }
+      ]
+    });
+
     if (existingFile) {
+      // For backward compatibility, update existing document if contentHash or links are missing
+      let needsUpdate = false;
+      if (!existingFile.contentHash) {
+        existingFile.contentHash = contentHash;
+        needsUpdate = true;
+      }
+      if (options?.contentName && !existingFile.contentName) {
+        existingFile.contentName = options.contentName;
+        needsUpdate = true;
+      }
+      if (options?.contentType && !existingFile.contentType) {
+        existingFile.contentType = options.contentType;
+        needsUpdate = true;
+      }
+      if (needsUpdate) {
+        await existingFile.save().catch(err => console.error("Error updating existing S3 file metadata:", err));
+      }
+
       return {
         originalName: existingFile.name,
         fileName: path.basename(existingFile.filePath || existingFile.url),
@@ -207,6 +235,9 @@ export const saveFileFromPart = async (
           folder: resolvedFolderId ? new Types.ObjectId(resolvedFolderId) : undefined,
           source: options?.source || uploadType.toLowerCase(),
           sourceId: options?.sourceId ? new Types.ObjectId(options.sourceId) : undefined,
+          contentHash,
+          contentName: options?.contentName,
+          contentType: options?.contentType,
           storageType: 's3',
           s3Key,
         });
@@ -227,13 +258,50 @@ export const saveFileFromPart = async (
 
       writeStream.on('finish', async () => {
         const stats = fs.statSync(fullFilePath);
-        
+
+        // Compute local file hash asynchronously
+        const computeFileHash = (filePath: string): Promise<string> => {
+          return new Promise((res, rej) => {
+            const h = crypto.createHash('sha256');
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', (chunk) => h.update(chunk));
+            stream.on('end', () => res(h.digest('hex')));
+            stream.on('error', (err) => rej(err));
+          });
+        };
+
+        const contentHash = await computeFileHash(fullFilePath).catch(() => '');
+
         // Deduplication check for local disk
-        const existingFile = await MediaFileModel.findOne({ name: part.filename, fileSize: stats.size });
+        const existingFile = await MediaFileModel.findOne({
+          $or: [
+            { contentHash },
+            { name: part.filename, fileSize: stats.size }
+          ]
+        });
+
         if (existingFile) {
           // Delete duplicate temp file
           fs.unlinkSync(fullFilePath);
-          
+
+          // For backward compatibility, update existing document if contentHash or links are missing
+          let needsUpdate = false;
+          if (!existingFile.contentHash && contentHash) {
+            existingFile.contentHash = contentHash;
+            needsUpdate = true;
+          }
+          if (options?.contentName && !existingFile.contentName) {
+            existingFile.contentName = options.contentName;
+            needsUpdate = true;
+          }
+          if (options?.contentType && !existingFile.contentType) {
+            existingFile.contentType = options.contentType;
+            needsUpdate = true;
+          }
+          if (needsUpdate) {
+            await existingFile.save().catch(err => console.error("Error updating existing local file metadata:", err));
+          }
+
           return resolve({
             originalName: existingFile.name,
             fileName: path.basename(existingFile.filePath || existingFile.url),
@@ -273,6 +341,9 @@ export const saveFileFromPart = async (
               folder: resolvedFolderId ? new Types.ObjectId(resolvedFolderId) : undefined,
               source: options?.source || uploadType.toLowerCase(),
               sourceId: options?.sourceId ? new Types.ObjectId(options.sourceId) : undefined,
+              contentHash,
+              contentName: options?.contentName,
+              contentType: options?.contentType,
               storageType: 'local'
             });
           } catch (error) {

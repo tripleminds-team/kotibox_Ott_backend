@@ -81,7 +81,7 @@ export const getReviewsApp = async (request: FastifyRequest, reply: FastifyReply
     const limit = parseInt(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const filter = { status: 'published' };
+    const filter = { status: 'published' as const };
 
     const [reviews, total] = await Promise.all([
       ReviewModel.find(filter)

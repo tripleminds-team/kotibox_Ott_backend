@@ -65,11 +65,27 @@ const runCommand = (command: string, args: string[]): Promise<string> => {
   });
 };
 
+const getVideoDurationSeconds = async (filePath: string): Promise<number | undefined> => {
+  try {
+    const output = await runCommand('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ]);
+    const duration = Number(output);
+    return Number.isFinite(duration) && duration > 0 ? duration : undefined;
+  } catch (error) {
+    logger.warn({ error, filePath }, 'ffprobe duration probe failed');
+    return undefined;
+  }
+};
+
 const ensureDir = (dir: string) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
-const toLocalUploadPath = (urlPath: string): string | null => {
+export const toLocalUploadPath = (urlPath: string): string | null => {
   if (!urlPath) return null;
   const uploadsRoot = path.join(process.cwd(), 'uploads');
   let relPath = urlPath;
@@ -443,12 +459,22 @@ export const processEpisodeHls = async (episodeId: Types.ObjectId | string, sour
       contentIdForEpisode:  episode.contentId.toString(),
     });
 
+    let actualDuration: number | undefined;
+    const localHlsPath = toLocalUploadPath(result.hlsUrl);
+    if (localHlsPath && fs.existsSync(localHlsPath)) {
+      const durationSecs = await getVideoDurationSeconds(localHlsPath);
+      if (durationSecs && Number.isFinite(durationSecs)) {
+        actualDuration = Math.round(durationSecs);
+      }
+    }
+
     await EpisodeModel.findByIdAndUpdate(episodeId, {
       hlsUrl:          result.hlsUrl,
       hlsS3Prefix:     result.hlsS3Prefix,
       videoQualities:  result.videoQualities,
       processingStatus:'ready',
       processingError: null,
+      ...(actualDuration ? { duration: actualDuration } : {}),
     });
 
     logger.info({ episodeId, hlsUrl: result.hlsUrl }, 'Episode HLS processing complete');

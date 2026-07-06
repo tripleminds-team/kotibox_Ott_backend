@@ -143,23 +143,38 @@ const getVideoDurationSeconds = async (filePath: string): Promise<number | undef
   }
 };
 
-const mapContent = (content: any, episodeCount = 0) => ({
-  id: content._id.toString(),
-  title: content.title,
-  subtitle: content.shortDescription,
-  description: content.description,
-  thumbnail: content.thumbnail,
-  bannerImage: content.bannerImage,
-  genres: content.genres,
-  languages: content.languages,
-  views: content.views,
-  likes: content.likes,
-  shares: content.shares,
-  episodeCount,
-  status: content.status,
-  createdAt: content.createdAt,
-  updatedAt: content.updatedAt,
-});
+const mapContent = (content: any, episodeCount = 0, forceType?: string) => {
+  let resolvedType = forceType || content.contentType;
+  if (!resolvedType) {
+    if (content.type === 'movie') {
+      resolvedType = 'movie';
+    } else if (content.type === 'series') {
+      resolvedType = 'series';
+    } else {
+      resolvedType = 'drama';
+    }
+  }
+  return {
+    id: content._id.toString(),
+    title: content.title,
+    subtitle: content.shortDescription,
+    description: content.description,
+    thumbnail: content.thumbnail,
+    bannerImage: content.bannerImage,
+    genres: content.genres,
+    languages: content.languages,
+    views: content.views,
+    likes: content.likes,
+    shares: content.shares,
+    episodeCount,
+    status: content.status,
+    createdAt: content.createdAt,
+    updatedAt: content.updatedAt,
+    contentType: resolvedType,
+    hlsUrl: content.hlsUrl,
+    videoUrl: content.videoUrl,
+  };
+};
 
 const mapEpisode = (episode: any) => ({
   id: episode._id.toString(),
@@ -179,6 +194,57 @@ const mapEpisode = (episode: any) => ({
   processingStatus: episode.processingStatus,
   processingError: episode.processingError,
 });
+
+const populateBannersContent = async (banners: any[]) => {
+  const contentIds = banners.map((b) => b.contentId).filter(Boolean);
+  if (contentIds.length === 0) return banners;
+
+  // Query both collections in parallel
+  const [movies, contents] = await Promise.all([
+    MovieModel.find({ _id: { $in: contentIds } }).lean(),
+    ContentModel.find({ _id: { $in: contentIds } }).lean(),
+  ]);
+
+  // Create a map for quick lookups
+  const contentMap = new Map();
+  for (const movie of movies) {
+    contentMap.set(movie._id.toString(), { ...movie, contentType: 'movie' });
+  }
+  for (const content of contents) {
+    contentMap.set(content._id.toString(), content);
+  }
+
+  // Assign populated content back to banner
+  for (const banner of banners) {
+    if (banner.contentId) {
+      banner.contentId = contentMap.get(banner.contentId.toString()) || null;
+    }
+  }
+
+  return banners;
+};
+
+const resequenceBanners = async (movedBannerId?: string, targetPosition?: number) => {
+  try {
+    const banners = await BannerModel.find().sort({ position: 1, updatedAt: -1 });
+    let currentPos = 1;
+    for (const banner of banners) {
+      if (movedBannerId && banner._id.toString() === movedBannerId) {
+        continue;
+      }
+      if (targetPosition !== undefined && currentPos === targetPosition) {
+        currentPos++;
+      }
+      if (banner.position !== currentPos) {
+        banner.position = currentPos;
+        await BannerModel.updateOne({ _id: banner._id }, { $set: { position: currentPos } });
+      }
+      currentPos++;
+    }
+  } catch (error) {
+    console.error('Error resequencing banners:', error);
+  }
+};
 
 const mapBanner = (banner: any, episodeCount = 0) => {
   const content = banner.contentId;
@@ -319,6 +385,7 @@ const readBannerMultipart = async (request: FastifyRequest): Promise<BannerMulti
 
 export const listBanners = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
+    await resequenceBanners();
     const query = request.query as {
       page?: string;
       limit?: string;
@@ -343,15 +410,16 @@ export const listBanners = async (request: FastifyRequest, reply: FastifyReply) 
       filter.targetPlatforms = query.platform;
     }
 
-    const [banners, total] = await Promise.all([
+    const [bannersRaw, total] = await Promise.all([
       BannerModel.find(filter)
-        .populate('contentId')
         .sort({ position: 1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
       BannerModel.countDocuments(filter),
     ]);
+
+    const banners = await populateBannersContent(bannersRaw);
 
     const contentIds = banners.map((banner: any) => banner.contentId?._id).filter(Boolean);
     const counts = await EpisodeModel.aggregate([
@@ -432,6 +500,8 @@ export const createBannerFromContent = async (request: FastifyRequest, reply: Fa
       targetPlatforms: ['web', 'mobile'],
     });
 
+    await resequenceBanners(banner._id.toString(), banner.position);
+
     return reply.status(201).send({
       success: true,
       data: {
@@ -505,6 +575,8 @@ export const createBannerShow = async (request: FastifyRequest, reply: FastifyRe
       startDate: data.startDate,
       endDate: data.endDate,
     });
+
+    await resequenceBanners(banner._id.toString(), banner.position);
 
     const episodes = await createEpisodeSlices({
       contentId: content._id as Types.ObjectId,
@@ -595,25 +667,37 @@ export const getBannerShow = async (request: FastifyRequest, reply: FastifyReply
     const page = Math.max(1, Number(query.page || 1));
     const limit = Math.min(100, Math.max(1, Number(query.limit || 25)));
 
-    const content = await ContentModel.findById(contentId).lean();
+    let content = await ContentModel.findById(contentId).lean() as any;
+    let isMovie = false;
     if (!content) {
-      return reply.status(404).send({ success: false, message: 'Content not found' });
+      content = await MovieModel.findById(contentId).lean();
+      if (!content) {
+        return reply.status(404).send({ success: false, message: 'Content not found' });
+      }
+      isMovie = true;
     }
 
-    const [episodes, total] = await Promise.all([
-      EpisodeModel.find({ contentId })
-        .sort({ episode: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      EpisodeModel.countDocuments({ contentId }),
-    ]);
+    let episodes: any[] = [];
+    let total = 0;
+
+    if (!isMovie) {
+      const [epList, epCount] = await Promise.all([
+        EpisodeModel.find({ contentId })
+          .sort({ episode: 1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+        EpisodeModel.countDocuments({ contentId }),
+      ]);
+      episodes = epList;
+      total = epCount;
+    }
 
     return {
       success: true,
       data: {
-        content: mapContent(content, total),
-        episodeRanges: Array.from({ length: Math.ceil(total / 25) }, (_, index) => ({
+        content: mapContent(content, total, isMovie ? 'movie' : undefined),
+        episodeRanges: isMovie ? [] : Array.from({ length: Math.ceil(total / 25) }, (_, index) => ({
           label: `${index * 25 + 1}-${Math.min((index + 1) * 25, total)}`,
           start: index * 25 + 1,
           end: Math.min((index + 1) * 25, total),
@@ -624,7 +708,7 @@ export const getBannerShow = async (request: FastifyRequest, reply: FastifyReply
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: isMovie ? 1 : Math.ceil(total / limit),
       },
     };
   } catch (error: any) {
@@ -636,11 +720,14 @@ export const getBannerShow = async (request: FastifyRequest, reply: FastifyReply
 export const getBannerById = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const { bannerId } = request.params as { bannerId: string };
-    const banner = await BannerModel.findById(bannerId).populate('contentId').lean();
+    const bannerRaw = await BannerModel.findById(bannerId).lean();
 
-    if (!banner) {
+    if (!bannerRaw) {
       return reply.status(404).send({ success: false, message: 'Banner not found' });
     }
+
+    const populated = await populateBannersContent([bannerRaw]);
+    const banner = populated[0];
 
     const episodeCount = banner.contentId
       ? await EpisodeModel.countDocuments({ contentId: banner.contentId._id })
@@ -666,7 +753,7 @@ export const updateBanner = async (request: FastifyRequest, reply: FastifyReply)
     }
 
     const existingContent = existingBanner.contentId
-      ? await ContentModel.findById(existingBanner.contentId).lean()
+      ? (await ContentModel.findById(existingBanner.contentId).lean() || await MovieModel.findById(existingBanner.contentId).lean())
       : null;
     const data = await readBannerMultipart(request);
     const updateData: Record<string, any> = {};
@@ -689,6 +776,8 @@ export const updateBanner = async (request: FastifyRequest, reply: FastifyReply)
       return reply.status(404).send({ success: false, message: 'Banner not found' });
     }
 
+    await resequenceBanners(updatedBannerDoc._id.toString(), updatedBannerDoc.position);
+
     if (existingBanner.contentId) {
       const contentUpdate: Record<string, any> = {};
       if (data.title !== undefined) contentUpdate.title = data.title;
@@ -702,7 +791,12 @@ export const updateBanner = async (request: FastifyRequest, reply: FastifyReply)
       if (data.languages?.length) contentUpdate.languages = data.languages;
 
       if (Object.keys(contentUpdate).length > 0) {
-        await ContentModel.findByIdAndUpdate(existingBanner.contentId, { $set: contentUpdate });
+        const isMovie = await MovieModel.exists({ _id: existingBanner.contentId });
+        if (isMovie) {
+          await MovieModel.findByIdAndUpdate(existingBanner.contentId, { $set: contentUpdate });
+        } else {
+          await ContentModel.findByIdAndUpdate(existingBanner.contentId, { $set: contentUpdate });
+        }
       }
 
       if (data.thumbnail !== undefined) {
@@ -718,10 +812,12 @@ export const updateBanner = async (request: FastifyRequest, reply: FastifyReply)
       await uploadHandler.deleteUploadedFile(existingContent.thumbnail);
     }
 
-    const banner = await BannerModel.findById(bannerId).populate('contentId').lean();
-    if (!banner) {
+    const bannerRaw = await BannerModel.findById(bannerId).lean();
+    if (!bannerRaw) {
       return reply.status(404).send({ success: false, message: 'Banner not found' });
     }
+    const populated = await populateBannersContent([bannerRaw]);
+    const banner = populated[0];
     const episodeCount = banner.contentId
       ? await EpisodeModel.countDocuments({ contentId: banner.contentId._id })
       : 0;
@@ -774,6 +870,8 @@ export const deleteBanner = async (request: FastifyRequest, reply: FastifyReply)
       await uploadHandler.deleteUploadedFile(filePath);
     }
 
+    await resequenceBanners();
+
     return {
       success: true,
       message: 'Banner deleted successfully',
@@ -825,6 +923,8 @@ export const bulkDeleteBanners = async (request: FastifyRequest, reply: FastifyR
     }
 
     const result = await BannerModel.deleteMany({ _id: { $in: ids } });
+
+    await resequenceBanners();
 
     return reply.send({
       success: true,

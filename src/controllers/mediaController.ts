@@ -29,15 +29,28 @@ export const seedDefaultFolders = async () => {
     'Constant',
     'Genres',
     'Logos',
+    'Movie',
     'Short Drama',
+    'TV Show',
     'Users',
     'Video',
   ];
 
   for (const name of defaultFolderNames) {
-    const existing = await MediaFolderModel.findOne({ name });
-    if (!existing) {
-      await MediaFolderModel.create({ name });
+    let folder = await MediaFolderModel.findOne({ name, parentFolder: null });
+    if (!folder) {
+      folder = await MediaFolderModel.create({ name, parentFolder: null });
+    }
+
+    // Seed nested subfolders (Images, Videos) for Movie, TV Show, and Short Drama
+    if (['Movie', 'TV Show', 'Short Drama'].includes(name)) {
+      const subfolders = ['Images', 'Videos'];
+      for (const subName of subfolders) {
+        const existingSub = await MediaFolderModel.findOne({ name: subName, parentFolder: folder._id });
+        if (!existingSub) {
+          await MediaFolderModel.create({ name: subName, parentFolder: folder._id });
+        }
+      }
     }
   }
 };
@@ -45,13 +58,30 @@ export const seedDefaultFolders = async () => {
 // Get all folders
 export const getFolders = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const folders = await MediaFolderModel.find().sort({ name: 1 }).lean();
+    const query = request.query as { parentFolder?: string };
+    let filter: any = { parentFolder: null };
+
+    if (query.parentFolder) {
+      if (query.parentFolder === 'all') {
+        filter = {};
+      } else if (Types.ObjectId.isValid(query.parentFolder)) {
+        filter = { parentFolder: new Types.ObjectId(query.parentFolder) };
+      }
+    }
+
+    const folders = await MediaFolderModel.find(filter).sort({ name: 1 }).lean();
     const foldersWithCount = [];
     for (const folder of folders) {
-      const count = await MediaFileModel.countDocuments({ folder: folder._id });
+      const subFolders = await MediaFolderModel.find({ parentFolder: folder._id });
+      const subFolderIds = subFolders.map(sf => sf._id);
+      const count = await MediaFileModel.countDocuments({
+        folder: { $in: [folder._id, ...subFolderIds] }
+      });
+
       foldersWithCount.push({
         _id: folder._id,
         name: folder.name,
+        parentFolder: folder.parentFolder,
         count,
       });
     }
@@ -69,17 +99,21 @@ export const getFolders = async (request: FastifyRequest, reply: FastifyReply) =
 // Create folder
 export const createFolder = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const { name } = request.body as { name: string };
+    const { name, parentFolder } = request.body as { name: string; parentFolder?: string };
     if (!name) {
       return reply.status(400).send({ success: false, error: 'Folder name is required' });
     }
 
-    const existing = await MediaFolderModel.findOne({ name });
+    const parentId = parentFolder && Types.ObjectId.isValid(parentFolder)
+      ? new Types.ObjectId(parentFolder)
+      : null;
+
+    const existing = await MediaFolderModel.findOne({ name, parentFolder: parentId });
     if (existing) {
-      return reply.status(400).send({ success: false, error: 'Folder already exists' });
+      return reply.status(400).send({ success: false, error: 'Folder already exists at this level' });
     }
 
-    const folder = await MediaFolderModel.create({ name });
+    const folder = await MediaFolderModel.create({ name, parentFolder: parentId });
     return reply.status(201).send({
       success: true,
       data: folder,
@@ -282,20 +316,35 @@ export const uploadFilesToFolder = async (request: FastifyRequest, reply: Fastif
     }
 
     const savedFiles = [];
-    const customDir = `media/${id}`;
     let source = 'media-library';
+
+    // Check if this folder has nested subfolders (Images, Videos)
+    const subfolders = await MediaFolderModel.find({ parentFolder: folder._id });
+    const imagesSubfolder = subfolders.find(sf => sf.name.toLowerCase() === 'images');
+    const videosSubfolder = subfolders.find(sf => sf.name.toLowerCase() === 'videos');
 
     const parts = request.parts();
     for await (const part of parts) {
       if (part.type === 'file' && part.fieldname === 'file') {
+        let targetFolderId = id;
+        const isVideo = part.mimetype?.startsWith('video/') || part.filename.match(/\.(mp4|webm|mov|mkv|avi|flv)$/i);
+        const isImage = part.mimetype?.startsWith('image/') || part.filename.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i);
+
+        if (isVideo && videosSubfolder) {
+          targetFolderId = videosSubfolder._id.toString();
+        } else if (isImage && imagesSubfolder) {
+          targetFolderId = imagesSubfolder._id.toString();
+        }
+
+        const customDir = `media/${targetFolderId}`;
+
         const uploadedFile = await uploadHandler.saveFileFromPart(part, request, 'MEDIA_LIBRARY', customDir, {
           trackInMediaLibrary: true,
           source: source,
-          folderId: id,
+          folderId: targetFolderId,
         });
         savedFiles.push(uploadedFile);
       } else if (part.type === 'field' && part.fieldname === 'source') {
-        // Read the source field value
         source = part.value as string;
       }
     }
@@ -321,6 +370,13 @@ export const deleteFile = async (request: FastifyRequest, reply: FastifyReply) =
     const file = await MediaFileModel.findById(id);
     if (!file) {
       return reply.status(404).send({ success: false, error: 'File not found' });
+    }
+
+    if (file.sourceId && file.contentName) {
+      return reply.status(400).send({
+        success: false,
+        error: `This file is currently in use by "${file.contentName}" (${file.contentType}). Please update or remove that content before deleting this file.`
+      });
     }
 
     // Delete file from storage

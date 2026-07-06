@@ -74,6 +74,41 @@ const mapContentItem = (
   firstEpisodeIsFree: firstEpisode?.isFree ?? null,
 });
 
+const populateBannersContent = async (banners: any[]) => {
+  const contentIds = banners.map((b) => b.contentId).filter(Boolean);
+  if (contentIds.length === 0) return banners;
+
+  // Query both collections in parallel
+  const [movies, contents] = await Promise.all([
+    MovieModel.find({ _id: { $in: contentIds } })
+      .populate('languages', 'name')
+      .populate('genres', 'name')
+      .lean(),
+    ContentModel.find({ _id: { $in: contentIds } })
+      .populate('languages', 'name')
+      .populate('genres', 'name')
+      .lean(),
+  ]);
+
+  // Create a map for quick lookups
+  const contentMap = new Map();
+  for (const movie of movies) {
+    contentMap.set(movie._id.toString(), { ...movie, type: 'movie' });
+  }
+  for (const content of contents) {
+    contentMap.set(content._id.toString(), { ...content, type: content.type || 'series' });
+  }
+
+  // Assign populated content back to banner
+  for (const banner of banners) {
+    if (banner.contentId) {
+      banner.contentId = contentMap.get(banner.contentId.toString()) || null;
+    }
+  }
+
+  return banners;
+};
+
 // Helper function to map banner
 const mapBanner = (
   banner: any,
@@ -170,7 +205,7 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     let sectionsToFetch = dbSections.length > 0 ? dbSections : getFallbackSections(tab);
 
     // Fetch banners for the current tab
-    const banners = await BannerModel.find({
+    const bannersRaw = await BannerModel.find({
       isActive: true,
       targetPlatforms: platform,
       contentType: tab, // Strictly match the tab to prevent mixing movies and dramas
@@ -179,16 +214,11 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
         { $or: [{ endDate: { $exists: false } }, { endDate: { $gte: now } }] },
       ],
     })
-      .populate({
-        path: 'contentId',
-        populate: [
-          { path: 'languages', select: 'name' },
-          { path: 'genres', select: 'name' }
-        ]
-      })
       .sort({ position: 1, createdAt: -1 })
       .limit(limit)
       .lean();
+
+    const banners = await populateBannersContent(bannersRaw);
 
     // Fetch content for each section
     const sectionPromises = sectionsToFetch.map(async (section) => {
