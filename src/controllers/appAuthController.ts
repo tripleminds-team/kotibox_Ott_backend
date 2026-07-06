@@ -442,3 +442,36 @@ export const appleAuth = async (request: FastifyRequest, reply: FastifyReply) =>
     return reply.status(500).send({ success: false, message: 'Apple authentication failed' });
   }
 };
+
+// ── App Logout ─────────────────────────────────────────────────────────────
+export const logoutUser = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    // Verify the JWT is valid before processing logout
+    await request.jwtVerify();
+
+    const userId = (request.user as any).id;
+    const { deviceId } = (request.body as any) || {};
+
+    if (userId) {
+      if (deviceId) {
+        // Remove the specific device from the user's device list
+        // so they stop receiving push notifications on this device
+        await UserModel.findByIdAndUpdate(userId, {
+          $pull: { devices: { deviceId } },
+        });
+      }
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    // If JWT is invalid/expired, the user is already logged out — still return 200
+    return reply.status(200).send({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  }
+};
+

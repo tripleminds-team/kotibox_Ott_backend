@@ -8,6 +8,7 @@ import {
   loginUser,
   googleAuth,
   appleAuth,
+  logoutUser,
 } from '../controllers/appAuthController';
 
 const appAuthRoutes: FastifyPluginAsync = async (fastify) => {
@@ -17,6 +18,7 @@ const appAuthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/app/auth/login', loginUser);
   fastify.post('/app/auth/google', googleAuth);
   fastify.post('/app/auth/apple', appleAuth);
+  fastify.post('/app/auth/logout', logoutUser);
 
   fastify.post('/app/auth/language/:userId', setPreferredLanguage);
   fastify.post('/app/auth/language/:userId/skip', skipPreferredLanguage);
