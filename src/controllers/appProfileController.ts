@@ -72,6 +72,7 @@ export const getAppProfile = async (request: FastifyRequest, reply: FastifyReply
           name: user.name,
           phone: user.phone || null,
           email: user.email || null,
+          avatar: (user as any).avatar || null,
           subscription: isActive,
           subscriptionStatus: isActive ? 'active' : 'inactive',
           subscriptionPlan: isActive ? (user.subscriptionPlan || 'free') : 'free',
