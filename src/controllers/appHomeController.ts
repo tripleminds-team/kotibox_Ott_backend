@@ -10,9 +10,33 @@ import { LanguageModel } from '../models/Language';
 import { UserWatchProgressModel } from '../models/UserWatchProgress';
 import { logger } from '../lib/logger';
 import mongoose from 'mongoose';
+import { isS3Configured, getS3PublicUrl } from '../lib/s3';
 
 // Base URL for the backend API (used for smart share links)
 import { API_URL, buildShareUrl } from '../lib/config';
+
+// ── URL Resolver ─────────────────────────────────────────────────────────────
+// Converts any stored path/key to a proper full URL:
+// - Already full URL (https://...) → returned as-is
+// - S3 key (e.g. "languages/file.jpg") → full S3 URL
+// - Local relative path → full server URL
+const buildUrlResolver = (request: FastifyRequest, s3Active: boolean, s3BaseUrl: string) =>
+  (url: string | null | undefined): string | null => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (s3Active) {
+      let key = url;
+      if (key.startsWith('/')) key = key.slice(1);
+      if (key.startsWith('uploads/')) key = key.replace('uploads/', '');
+      if (key.startsWith('/uploads/')) key = key.replace('/uploads/', '');
+      return `${s3BaseUrl}/${key}`;
+    }
+    let relPath = url;
+    if (!relPath.startsWith('/uploads/')) {
+      relPath = relPath.startsWith('uploads/') ? `/${relPath}` : `/uploads/${relPath.startsWith('/') ? relPath.slice(1) : relPath}`;
+    }
+    return `${request.protocol}://${request.hostname}${relPath}`;
+  };
 
 // Helper: try to extract userId from JWT (optional auth — no error if missing/invalid)
 const getOptionalUserId = (request: FastifyRequest): string | null => {
@@ -30,10 +54,11 @@ const getOptionalUserId = (request: FastifyRequest): string | null => {
 
 
 
-// Helper function to map content items
+// Helper function to map content items — resolveUrl converts all image/video paths to full URLs
 const mapContentItem = (
   item: any,
   type: string,
+  resolveUrl: (url: string | null | undefined) => string | null,
   episodeCount = 0,
   firstEpisode?: any,
   likeCount = 0,
@@ -43,8 +68,9 @@ const mapContentItem = (
   title: item.title,
   description: item.description,
   shortDescription: item.shortDescription,
-  thumbnail: item.thumbnail,
-  bannerImage: item.bannerImage,
+  thumbnail: resolveUrl(item.thumbnail),
+  bannerImage: resolveUrl(item.bannerImage),
+  posterImage: resolveUrl(item.posterImage),
   type,
   episodeCount,
   genres: (item.genres || []).map((g: any) => g.name || g),
@@ -65,11 +91,11 @@ const mapContentItem = (
   createdAt: item.createdAt,
   updatedAt: item.updatedAt,
   // Preview video info — only first episode (short-drama reel style)
-  videoUrl: firstEpisode?.hlsUrl || item.hlsUrl || null,
-  trailerUrl: firstEpisode?.trailerUrl || item.trailerUrl || null,
+  videoUrl: resolveUrl(firstEpisode?.hlsUrl || item.hlsUrl || null),
+  trailerUrl: resolveUrl(firstEpisode?.trailerUrl || item.trailerUrl || null),
   firstEpisodeId: firstEpisode?._id?.toString() || null,
   firstEpisodeTitle: firstEpisode?.title || null,
-  firstEpisodeThumbnail: firstEpisode?.thumbnail || item.thumbnail || null,
+  firstEpisodeThumbnail: resolveUrl(firstEpisode?.thumbnail || item.thumbnail || null),
   firstEpisodeDuration: firstEpisode?.duration || null,
   firstEpisodeIsFree: firstEpisode?.isFree ?? null,
 });
@@ -109,28 +135,29 @@ const populateBannersContent = async (banners: any[]) => {
   return banners;
 };
 
-// Helper function to map banner
+// Helper function to map banner — resolveUrl converts all image paths to full URLs
 const mapBanner = (
   banner: any,
+  resolveUrl: (url: string | null | undefined) => string | null,
   episodeCount = 0,
   firstEpisode?: any,
   likeCount = 0,
   isLikedByUser = false,
 ) => {
   const content = banner.contentId;
-  const thumbnail = content?.thumbnail || banner.imageUrl;
+  const thumbnail = resolveUrl(content?.thumbnail || banner.imageUrl);
   return {
     id: banner._id.toString(),
     title: banner.title,
     subtitle: banner.subtitle,
     description: banner.description,
     thumbnail,
-    imageUrl: thumbnail,
-    mobileImageUrl: banner.mobileImageUrl,
+    imageUrl: resolveUrl(banner.imageUrl),
+    mobileImageUrl: resolveUrl(banner.mobileImageUrl),
     ctaText: banner.ctaText,
     ctaLink: banner.ctaLink,
     contentId: banner.contentId?._id?.toString(),
-    content: content ? mapContentItem(content, content.type || banner.contentType || 'series', episodeCount, firstEpisode, likeCount, isLikedByUser) : undefined,
+    content: content ? mapContentItem(content, content.type || banner.contentType || 'series', resolveUrl, episodeCount, firstEpisode, likeCount, isLikedByUser) : undefined,
     type: banner.type,
     contentType: banner.contentType,
     position: banner.position,
@@ -172,6 +199,15 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     const limit = Math.min(20, Math.max(1, Number(query.limit || 10)));
     
     const userId = getOptionalUserId(request);
+
+    // Build URL resolver (S3 or local)
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const raw = await getS3PublicUrl('');
+      s3BaseUrl = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    }
+    const resolveUrl = buildUrlResolver(request, s3Active, s3BaseUrl);
 
     // Get user's preferred language (defaulting to Hindi if skipped/not set)
     let preferredLanguage = 'Hindi';
@@ -364,9 +400,9 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
         if (tab === 'drama') {
           const episodeCount = episodeCountMap.get(cid) || 0;
           const firstEpisode = firstEpisodeMap.get(cid);
-          return mapContentItem(item, 'drama', episodeCount, firstEpisode, likeCount, isLikedByUser);
+          return mapContentItem(item, 'drama', resolveUrl, episodeCount, firstEpisode, likeCount, isLikedByUser);
         } else {
-          return mapContentItem(item, 'movie', 0, undefined, likeCount, isLikedByUser);
+          return mapContentItem(item, 'movie', resolveUrl, 0, undefined, likeCount, isLikedByUser);
         }
       }),
     }));
@@ -397,9 +433,9 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
         if (tab === 'drama') {
           const episodeCount = episodeCountMap.get(cid) || 0;
           const firstEpisode = firstEpisodeMap.get(cid);
-          mapped = mapContentItem(item, 'drama', episodeCount, firstEpisode, likeCount, isLikedByUser);
+          mapped = mapContentItem(item, 'drama', resolveUrl, episodeCount, firstEpisode, likeCount, isLikedByUser);
         } else {
-          mapped = mapContentItem(item, 'movie', 0, undefined, likeCount, isLikedByUser);
+          mapped = mapContentItem(item, 'movie', resolveUrl, 0, undefined, likeCount, isLikedByUser);
         }
 
         // Inject watch progress detail
@@ -457,6 +493,15 @@ export const getAppBanners = async (request: FastifyRequest, reply: FastifyReply
     const limit = Math.min(20, Math.max(1, Number(query.limit || 10)));
     const now = new Date();
 
+    // Build URL resolver (S3 or local)
+    const s3Active = await isS3Configured();
+    let s3BaseUrl = '';
+    if (s3Active) {
+      const raw = await getS3PublicUrl('');
+      s3BaseUrl = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    }
+    const resolveUrl = buildUrlResolver(request, s3Active, s3BaseUrl);
+
     // contentType: 'drama' → drama only
     // contentType: 'movie' → movie only
     // contentType: 'both'  → show in all tabs
@@ -511,13 +556,13 @@ export const getAppBanners = async (request: FastifyRequest, reply: FastifyReply
     }
 
     const mappedBanners = banners.map(banner => {
-      if (!banner.contentId) return mapBanner(banner);
+      if (!banner.contentId) return mapBanner(banner, resolveUrl);
       const cid = (banner.contentId as any)._id.toString();
       const likeCount = (banner.contentId as any).likes || 0;
       const isLikedByUser = likedContentIdSet.has(cid);
       const episodeCount = episodeCountMap.get(cid) || 0;
       const firstEpisode = firstEpisodeMap.get(cid);
-      return mapBanner(banner, episodeCount, firstEpisode, likeCount, isLikedByUser);
+      return mapBanner(banner, resolveUrl, episodeCount, firstEpisode, likeCount, isLikedByUser);
     });
 
     return reply.send({
