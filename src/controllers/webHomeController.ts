@@ -3,6 +3,7 @@ import { MovieModel } from '../models/Movie';
 import { ContentModel } from '../models/Content';
 import { EpisodeModel } from '../models/Episode';
 import { GenreModel } from '../models/Genre';
+import { BannerModel } from '../models/Banner';
 import mongoose from 'mongoose';
 import { logger } from '../lib/logger';
 
@@ -61,8 +62,17 @@ const mapShortDrama = (item: any, totalEpisodes: number, freeEpisodes: number) =
   };
 };
 
+let homeCacheData: any = null;
+let homeCacheTime = 0;
+const CACHE_TTL = 30000; // 30 seconds
+
 export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
+    const now = Date.now();
+    if (homeCacheData && (now - homeCacheTime) < CACHE_TTL) {
+      return reply.send(homeCacheData);
+    }
+
     // Shared projection to make queries extremely fast
     const selectFields = 'title description shortDescription thumbnail bannerImage posterImage year rating ageRating duration imdbRating createdAt featured trending isNewContent views genres languages seasons contentType';
 
@@ -74,11 +84,77 @@ export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) =
 
     // Construct promises for all data blocks to run perfectly in parallel
     const queries = [
-      // 0: Hero (Mix of featured movies and shows)
-      Promise.all([
-        MovieModel.find({ status: 'published', $or: [{ featured: true }, { trending: true }] }).select(selectFields).sort({ createdAt: -1 }).limit(3).populate('genres', 'name').lean(),
-        ContentModel.find({ status: 'published', $or: [{ featured: true }, { trending: true }] }).select(selectFields).sort({ createdAt: -1 }).limit(2).populate('genres', 'name').lean()
-      ]),
+      // 0: Hero Banners from BannerModel (active, target platform: web)
+      (async () => {
+        const bannersRaw = await BannerModel.find({
+          isActive: true,
+          targetPlatforms: 'web'
+        }).sort({ position: 1, createdAt: -1 }).limit(10).lean();
+
+        const contentIds = bannersRaw.map(b => b.contentId).filter(Boolean);
+        const [movies, contents] = await Promise.all([
+          MovieModel.find({ _id: { $in: contentIds } }).populate('genres', 'name').lean(),
+          ContentModel.find({ _id: { $in: contentIds } }).populate('genres', 'name').lean(),
+        ]);
+
+        const contentMap = new Map();
+        for (const movie of movies) {
+          contentMap.set(movie._id.toString(), { ...movie, type: 'movie' });
+        }
+        for (const content of contents) {
+          contentMap.set(content._id.toString(), { ...content, type: 'series' });
+        }
+
+        return bannersRaw.map((banner: any) => {
+          const content = banner.contentId ? contentMap.get(banner.contentId.toString()) : null;
+          if (content) {
+            // Determine the actual content type
+            const isMovie = content.type === 'movie';
+            const isDrama = !isMovie && content.contentType === 'drama';
+            const type = isMovie ? 'movie' : 'show';
+            const actualContentType = isMovie ? 'movie' : (content.contentType || 'series');
+            return {
+              id: content._id.toString(),
+              title: banner.title || content.title,
+              poster: banner.imageUrl || content.posterImage || content.thumbnail || '',
+              backdrop: banner.imageUrl || content.bannerImage || content.thumbnail || '',
+              type,
+              contentType: actualContentType,
+              year: content.year?.toString() || new Date(content.createdAt).getFullYear().toString(),
+              duration: content.duration ? `${content.duration}m` : '120m',
+              imdbRating: content.imdbRating?.toString() || (content.rating || '8.0'),
+              ageRating: content.ageRating ? `${content.ageRating}+` : 'U/A 13+',
+              description: banner.description || content.shortDescription || content.description || '',
+              language: content.languages && content.languages.length > 0 ? 'Multi' : 'EN',
+              badge: banner.type?.toUpperCase() || 'EXCLUSIVE',
+              genres: (content.genres || []).map((g: any) => g?.name || g),
+              seasons: type === 'show' && !isDrama ? content.seasons || 1 : undefined,
+            };
+          } else {
+            // Banner without linked content — use banner's own contentType
+            const bannerContentType = banner.contentType || 'both';
+            return {
+              id: banner._id.toString(),
+              title: banner.title,
+              poster: banner.imageUrl || '',
+              backdrop: banner.imageUrl || '',
+              type: bannerContentType === 'movie' ? 'movie' : 'show',
+              contentType: bannerContentType,
+              year: new Date(banner.createdAt).getFullYear().toString(),
+              duration: '120m',
+              imdbRating: '8.0',
+              ageRating: 'U/A 13+',
+              description: banner.description || '',
+              language: 'EN',
+              badge: banner.type?.toUpperCase() || 'PROMO',
+              genres: [],
+              seasons: undefined,
+              ctaLink: banner.ctaLink,
+              ctaText: banner.ctaText,
+            };
+          }
+        });
+      })(),
       // 1: Trending Now (Mix)
       Promise.all([
         MovieModel.find({ status: 'published', trending: true }).sort({ views: -1, createdAt: -1 }).select(selectFields).limit(5).populate('genres', 'name').lean(),
@@ -110,7 +186,7 @@ export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) =
     const results = await Promise.all(queries);
 
     // Extract results
-    const heroRaw = [...results[0][0], ...results[0][1]].sort(() => Math.random() - 0.5);
+    const heroContent = results[0];
     const trendingRaw = [...results[1][0], ...results[1][1]].sort((a: any, b: any) => (b.views || 0) - (a.views || 0));
     const newReleasesRaw = [...results[2][0], ...results[2][1]].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const topRatedRaw = results[3];
@@ -141,7 +217,7 @@ export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) =
     }
 
     // Map raw data into frontend structure
-    const heroContent = heroRaw.map((m: any) => mapContentItem(m, m.type === 'series' ? 'show' : 'movie', true));
+    // Map raw data into frontend structure (heroContent is already mapped)
     const trendingNow = trendingRaw.map((m: any) => mapContentItem(m, m.type === 'series' ? 'show' : 'movie'));
     const newReleases = newReleasesRaw.map((m: any) => mapContentItem(m, m.type === 'series' ? 'show' : 'movie'));
     const topRated = topRatedRaw.map((m: any) => mapContentItem(m, 'movie'));
@@ -159,7 +235,7 @@ export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) =
       return mapShortDrama(m, stats.total, stats.free);
     });
 
-    return reply.send({
+    const responseData = {
       success: true,
       data: {
         heroContent,
@@ -172,7 +248,12 @@ export const getWebHome = async (request: FastifyRequest, reply: FastifyReply) =
         actionMovies,
         dramaShows,
       }
-    });
+    };
+
+    homeCacheData = responseData;
+    homeCacheTime = Date.now();
+
+    return reply.send(responseData);
 
   } catch (error: any) {
     logger.error({ error }, 'Error fetching web home API data');

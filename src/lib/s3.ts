@@ -6,7 +6,7 @@ import { logger } from './logger';
 import { SettingsModel } from '../models/Settings';
 
 // Helper function to get settings from database
-async function getS3Settings() {
+export async function getS3Settings() {
   const settings = await SettingsModel.findOne();
   return {
     accessKeyId: settings?.awsAccessKeyId || process.env.AWS_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
@@ -19,7 +19,7 @@ async function getS3Settings() {
 }
 
 // Create S3 client dynamically based on settings
-async function getS3Client() {
+export async function getS3Client() {
   const settings = await getS3Settings();
   return new S3Client({
     region: settings.region,

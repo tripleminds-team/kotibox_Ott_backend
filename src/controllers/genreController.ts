@@ -25,6 +25,9 @@ const readGenreMultipart = async (request: FastifyRequest): Promise<any> => {
   return data;
 };
 
+import { ContentModel } from '../models/Content';
+import { MovieModel } from '../models/Movie';
+
 export const listGenres = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const query = request.query as {
@@ -37,6 +40,15 @@ export const listGenres = async (request: FastifyRequest, reply: FastifyReply) =
     const isAdminView = query.admin === 'true';
 
     const filter: any = isAdminView ? {} : { active: true };
+
+    if (!isAdminView) {
+      const [activeMovieGenres, activeContentGenres] = await Promise.all([
+        MovieModel.distinct('genres', { status: 'published' }),
+        ContentModel.distinct('genres', { status: 'published' })
+      ]);
+      const activeGenreIds = [...new Set([...activeMovieGenres, ...activeContentGenres].map(id => id?.toString()).filter(Boolean))];
+      filter._id = { $in: activeGenreIds };
+    }
 
     const [genres, total] = await Promise.all([
       GenreModel.find(filter)

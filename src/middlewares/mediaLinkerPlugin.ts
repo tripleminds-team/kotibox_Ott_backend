@@ -8,26 +8,36 @@ const extractUploadPath = (value: any): string | null => {
   return match ? match[1] : null;
 };
 
-const findUploadPaths = (obj: any, paths: Set<string> = new Set()): Set<string> => {
+const isPlainObject = (value: any) => {
+  if (!value || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+};
+
+const findUploadPaths = (
+  obj: any,
+  paths: Set<string> = new Set(),
+  visited: WeakSet<object> = new WeakSet()
+): Set<string> => {
   if (!obj) return paths;
   if (typeof obj === 'string') {
     const p = extractUploadPath(obj);
     if (p) paths.add(p);
   } else if (Array.isArray(obj)) {
+    if (visited.has(obj)) return paths;
+    visited.add(obj);
     for (const item of obj) {
-      findUploadPaths(item, paths);
+      findUploadPaths(item, paths, visited);
     }
   } else if (typeof obj === 'object') {
-    // Avoid circular refs or model constructors
-    if (obj.constructor && obj.constructor.name !== 'Object' && obj.constructor.name !== 'Array') {
-      if (typeof obj.toJSON === 'function') {
-        findUploadPaths(docToObject(obj), paths);
-      }
-      return paths;
-    }
+    if (visited.has(obj)) return paths;
+    visited.add(obj);
+
+    if (!isPlainObject(obj)) return paths;
+
     for (const [key, val] of Object.entries(obj)) {
       if (key !== '_id' && key !== '__v') {
-        findUploadPaths(val, paths);
+        findUploadPaths(val, paths, visited);
       }
     }
   }

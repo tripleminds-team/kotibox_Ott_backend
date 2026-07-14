@@ -7,6 +7,8 @@ import { MediaFileModel } from '../models/MediaFile';
 import { MediaFolderModel } from '../models/MediaFolder';
 import { Types } from 'mongoose';
 import { uploadToS3, deleteFromS3, isS3Configured } from './s3';
+import { transcodeToHls } from './hlsTranscoder';
+import { logger } from './logger';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -121,6 +123,13 @@ export const validateFileType = (fileName: string, uploadType: UploadType): bool
   return (typeConfig.allowedExts as readonly string[]).includes(ext);
 };
 
+// Helper to check if a file is a video based on file extension or mimetype
+const isVideoFile = (fileName: string, mimeType: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.m4v', '.mpeg', '.mpg'];
+  const ext = path.extname(fileName).toLowerCase();
+  return videoExtensions.includes(ext) || mimeType.startsWith('video/');
+};
+
 export const saveFileFromPart = async (
   part: any,
   request: FastifyRequest,
@@ -226,7 +235,7 @@ export const saveFileFromPart = async (
 
     if (options?.trackInMediaLibrary !== false) {
       try {
-        await MediaFileModel.create({
+        const mediaFile = await MediaFileModel.create({
           name: part.filename,
           url: fileInfo.url,
           filePath: fileInfo.filePath,
@@ -241,6 +250,18 @@ export const saveFileFromPart = async (
           storageType: 's3',
           s3Key,
         });
+
+        // If it's a video file, trigger HLS transcoding asynchronously
+        if (isVideoFile(part.filename, part.mimetype || '')) {
+          const protocol = request.protocol;
+          const host = request.headers.host;
+          const baseUrl = `${protocol}://${host}`;
+          
+          // Run transcoding in the background
+          transcodeToHls(mediaFile._id.toString(), '', baseUrl, 's3').catch(err => {
+            logger.error({ err, mediaFileId: mediaFile._id }, 'Failed to transcode video to HLS (S3)');
+          });
+        }
       } catch (error) {
         console.error('Failed to track file in media library:', error);
       }
@@ -331,25 +352,37 @@ export const saveFileFromPart = async (
         };
 
         if (options?.trackInMediaLibrary !== false) {
-          try {
-            await MediaFileModel.create({
-              name: part.filename,
-              url: fileInfo.url,
-              filePath: fileInfo.filePath,
-              fileSize: stats.size,
-              fileType: part.mimetype || 'application/octet-stream',
-              folder: resolvedFolderId ? new Types.ObjectId(resolvedFolderId) : undefined,
-              source: options?.source || uploadType.toLowerCase(),
-              sourceId: options?.sourceId ? new Types.ObjectId(options.sourceId) : undefined,
-              contentHash,
-              contentName: options?.contentName,
-              contentType: options?.contentType,
-              storageType: 'local'
-            });
-          } catch (error) {
-            console.error('Failed to track file in media library:', error);
-          }
+      try {
+        const mediaFile = await MediaFileModel.create({
+          name: part.filename,
+          url: fileInfo.url,
+          filePath: fileInfo.filePath,
+          fileSize: stats.size,
+          fileType: part.mimetype || 'application/octet-stream',
+          folder: resolvedFolderId ? new Types.ObjectId(resolvedFolderId) : undefined,
+          source: options?.source || uploadType.toLowerCase(),
+          sourceId: options?.sourceId ? new Types.ObjectId(options.sourceId) : undefined,
+          contentHash,
+          contentName: options?.contentName,
+          contentType: options?.contentType,
+          storageType: 'local'
+        });
+
+        // If it's a video file, trigger HLS transcoding asynchronously
+        if (isVideoFile(part.filename, part.mimetype || '')) {
+          const protocol = request.protocol;
+          const host = request.headers.host;
+          const baseUrl = `${protocol}://${host}`;
+          
+          // Run transcoding in the background
+          transcodeToHls(mediaFile._id.toString(), fullFilePath, baseUrl, 'local').catch(err => {
+            logger.error({ err, mediaFileId: mediaFile._id }, 'Failed to transcode video to HLS (local)');
+          });
         }
+      } catch (error) {
+        console.error('Failed to track file in media library:', error);
+      }
+    }
 
         resolve(fileInfo);
       });

@@ -32,9 +32,24 @@ const mapContentItem = (item: any, type: 'movie' | 'show', queryContentType?: st
   };
 };
 
+const browseCache = new Map<string, { time: number; data: any }>();
+const BROWSE_CACHE_TTL = 30000; // 30 seconds
+
 export const getWebBrowse = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const query = request.query as { type?: string; genre?: string; page?: string; limit?: string; search?: string; section?: string };
+    
+    // Check Cache
+    const cacheKey = JSON.stringify(query);
+    const now = Date.now();
+    if (browseCache.has(cacheKey)) {
+      const cached = browseCache.get(cacheKey)!;
+      if (now - cached.time < BROWSE_CACHE_TTL) {
+        return reply.send(cached.data);
+      }
+      browseCache.delete(cacheKey); // clear expired
+    }
+
     const contentType = query.type || 'movie'; // 'movie', 'show', 'drama'
     const genreName = query.genre;
     const searchTerm = query.search?.trim();
@@ -104,7 +119,7 @@ export const getWebBrowse = async (request: FastifyRequest, reply: FastifyReply)
       else if (contentType === 'show') {
         Model = ContentModel;
         filter.type = 'series';
-        filter.contentType = 'series';
+        filter.contentType = { $ne: 'drama' };
       } else if (contentType === 'drama') {
         Model = ContentModel;
         filter.type = 'series';
@@ -122,7 +137,7 @@ export const getWebBrowse = async (request: FastifyRequest, reply: FastifyReply)
       return mapContentItem(item, mappedType, contentType !== 'all' ? contentType : undefined);
     });
 
-    return reply.send({
+    const responseData = {
       success: true,
       data: {
         items,
@@ -133,7 +148,11 @@ export const getWebBrowse = async (request: FastifyRequest, reply: FastifyReply)
           totalPages: Math.ceil(total / limit),
         },
       },
-    });
+    };
+
+    browseCache.set(cacheKey, { time: Date.now(), data: responseData });
+
+    return reply.send(responseData);
 
   } catch (error: any) {
     logger.error({ error }, 'Error fetching web browse API data');

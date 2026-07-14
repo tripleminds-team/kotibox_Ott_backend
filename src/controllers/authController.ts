@@ -99,6 +99,8 @@ export const getMe = async (request: FastifyRequest, reply: FastifyReply) => {
       planLimits: { canView: true, canCreate: false, canEdit: false, canDelete: false },
       notifications: { canView: true, canCreate: false, canEdit: false, canDelete: false },
       notificationTemplates: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+      settings: { canView: true, canCreate: false, canEdit: false, canDelete: false },
+      reviews: { canView: true, canCreate: false, canEdit: false, canDelete: false },
     };
     const mergedModulePermissions = { ...defaultModulePermissions } as any;
     if (admin.modulePermissions) {

@@ -223,6 +223,15 @@ export const getFilesByFolder = async (request: FastifyRequest, reply: FastifyRe
         sourceId: file.sourceId?.toString(),
         storageType: file.storageType,
         s3Key: file.s3Key,
+        isHls: file.isHls,
+        hlsMasterPlaylistUrl: file.hlsMasterPlaylistUrl,
+        hlsMasterPlaylistPath: file.hlsMasterPlaylistPath,
+        hlsQualities: file.hlsQualities,
+        hlsStatus: file.hlsStatus,
+        hlsError: file.hlsError,
+        duration: file.duration,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
       };
     });
 
@@ -292,7 +301,15 @@ export const getAllMediaFiles = async (request: FastifyRequest, reply: FastifyRe
         sourceId: file.sourceId?.toString(),
         storageType: file.storageType,
         s3Key: file.s3Key,
+        isHls: file.isHls,
+        hlsMasterPlaylistUrl: file.hlsMasterPlaylistUrl,
+        hlsMasterPlaylistPath: file.hlsMasterPlaylistPath,
+        hlsQualities: file.hlsQualities,
+        hlsStatus: file.hlsStatus,
+        hlsError: file.hlsError,
+        duration: file.duration,
         createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
       };
     });
 

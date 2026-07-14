@@ -251,10 +251,20 @@ export const getWatchHistory = async (request: FastifyRequest, reply: FastifyRep
       };
     }).filter(Boolean); // remove any nulls from deleted content
 
+    // Deduplicate by contentId — only show the most recently watched episode per series/drama
+    // Since results are sorted by lastWatchedAt desc, the first occurrence is the most recent
+    const seen = new Set<string>();
+    const deduped = items.filter((item: any) => {
+      const key = item.contentId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     return reply.send({
       success: true,
       data: {
-        items,
+        items: deduped,
         pagination: {
           page: Number(page),
           limit: Number(limit),
