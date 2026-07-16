@@ -151,6 +151,24 @@ export const createMovie = async (request: FastifyRequest, reply: FastifyReply) 
     const movie = await MovieModel.create(body);
     await syncSections(movie._id.toString(), body.sections);
 
+    // Trigger push notification to all users
+    try {
+      const { NotificationModel } = await import('../models/Notification');
+      await NotificationModel.create({
+        title: 'New Movie Added! 🍿',
+        body: `Watch ${movie.title} now on the app!`,
+        type: 'content_release',
+        targetAudience: 'all',
+        contentId: movie._id,
+        status: 'sent',
+        metrics: { targetCount: 0, sentCount: 1, openedCount: 0, clickedCount: 0 },
+        sentAt: new Date(),
+        priority: 'high'
+      });
+    } catch (notifErr) {
+      logger.error({ notifErr }, 'Error sending new movie notification');
+    }
+
     if (isRawLocalVideo) {
       import('../services/videoProcessor').then(({ processMovieInBackground }) => {
         processMovieInBackground(movie._id, body.hlsUrl);

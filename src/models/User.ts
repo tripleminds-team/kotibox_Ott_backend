@@ -38,6 +38,7 @@ export interface IUser extends Document {
   referredBy?: string;
   lastLogin?: Date;
   loginCount: number;
+  walletBalance: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +91,7 @@ const UserSchema = new Schema<IUser>(
     referredBy: String,
     lastLogin: Date,
     loginCount: { type: Number, default: 0 },
+    walletBalance: { type: Number, default: 0 },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

@@ -72,6 +72,10 @@ export interface ISettings extends Document {
   socialLogin: boolean;
   twoFactorAuth: boolean;
   emailVerification: boolean;
+  // VIP Settings
+  vipTitle: string;
+  vipHighlight: string;
+  vipSubtitle: string;
   // Social OAuth credentials
   googleClientId: string;
   appleClientId: string;
@@ -197,6 +201,10 @@ const SettingsSchema = new Schema<ISettings>(
     socialLogin: { type: Boolean, default: true },
     twoFactorAuth: { type: Boolean, default: false },
     emailVerification: { type: Boolean, default: true },
+    // VIP Settings
+    vipTitle: { type: String, default: 'Unlock the' },
+    vipHighlight: { type: String, default: 'Ultimate Experience' },
+    vipSubtitle: { type: String, default: 'Get unlimited ad-free streaming, offline downloads, and exclusive access to our premium catalog.' },
     // Social OAuth credentials
     googleClientId: { type: String, default: '' },
     appleClientId: { type: String, default: '' },

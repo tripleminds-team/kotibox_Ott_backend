@@ -620,6 +620,9 @@ export const updateAppProfile = async (request: FastifyRequest, reply: FastifyRe
     });
   } catch (error: any) {
     logger.error({ error }, 'Error updating app profile');
+    if (error.code === 11000) {
+      return reply.status(400).send({ success: false, message: 'This email or phone number is already registered to another account.' });
+    }
     return reply.status(500).send({ success: false, message: 'Failed to update profile' });
   }
 };
@@ -654,5 +657,161 @@ export const uploadAppAvatar = async (request: FastifyRequest, reply: FastifyRep
   } catch (error: any) {
     logger.error({ error }, 'Error uploading app avatar');
     return reply.status(500).send({ success: false, message: 'Failed to upload avatar' });
+  }
+};
+
+// ── GET /api/app/devices ──────────────────────────────────────────────────────
+export const getDevices = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const user = await UserModel.findById(userId).select('devices').lean();
+    if (!user) return reply.status(404).send({ success: false, message: 'User not found' });
+
+    const devices = (user as any).devices || [];
+    return reply.send({ success: true, data: devices });
+  } catch (error: any) {
+    logger.error({ error }, 'Error fetching devices');
+    return reply.status(500).send({ success: false, message: 'Failed to fetch devices' });
+  }
+};
+
+// ── DELETE /api/app/devices/:deviceId ──────────────────────────────────────────
+export const removeDevice = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const { deviceId } = request.params as { deviceId: string };
+    
+    await UserModel.findByIdAndUpdate(userId, {
+      $pull: { devices: { deviceId } } as any
+    });
+
+    return reply.send({ success: true, message: 'Device removed successfully' });
+  } catch (error: any) {
+    logger.error({ error }, 'Error removing device');
+    return reply.status(500).send({ success: false, message: 'Failed to remove device' });
+  }
+};
+
+// ── GET /api/app/profiles ────────────────────────────────────────────────────
+export const getProfiles = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const user = await UserModel.findById(userId).select('profiles').lean();
+    if (!user) return reply.status(404).send({ success: false, message: 'User not found' });
+
+    return reply.send({ success: true, data: user.profiles || [] });
+  } catch (error: any) {
+    logger.error({ error }, 'Error fetching profiles');
+    return reply.status(500).send({ success: false, message: 'Failed to fetch profiles' });
+  }
+};
+
+// ── POST /api/app/profiles ───────────────────────────────────────────────────
+export const createProfile = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const { name, isKids, avatar } = request.body as any;
+    if (!name) return reply.status(400).send({ success: false, message: 'Name is required' });
+
+    const user = await UserModel.findById(userId);
+    if (!user) return reply.status(404).send({ success: false, message: 'User not found' });
+
+    // Enforce limits
+    let profileLimitCount = 1;
+    const planName = user.subscriptionPlan || 'free';
+    const isActive = user.subscriptionStatus === 'active' && 
+                     (!user.subscriptionExpiry || user.subscriptionExpiry > new Date());
+                     
+    if (isActive && planName !== 'free') {
+      const plan = await SubscriptionPlanModel.findOne({ name: planName }).lean();
+      if (plan) {
+        const limit = await PlanLimitModel.findOne({ planId: plan._id }).lean();
+        if (limit) profileLimitCount = limit.profileLimitCount;
+      }
+    }
+
+    if ((user as any).profiles.length >= profileLimitCount) {
+      return reply.status(403).send({ success: false, message: `Profile limit of ${profileLimitCount} reached on your current plan.` });
+    }
+
+    const newProfile = {
+      name,
+      isKids: isKids || false,
+      avatar: avatar || null,
+      language: user.preferredLanguage || 'Hindi',
+      maturityLevel: isKids ? 7 : 18,
+    };
+
+    (user as any).profiles.push(newProfile);
+    await user.save();
+
+    const created = (user as any).profiles[(user as any).profiles.length - 1];
+    return reply.send({ success: true, data: created, message: 'Profile created successfully' });
+  } catch (error: any) {
+    logger.error({ error }, 'Error creating profile');
+    return reply.status(500).send({ success: false, message: 'Failed to create profile' });
+  }
+};
+
+// ── PUT /api/app/profiles/:profileId ─────────────────────────────────────────
+export const updateProfile = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const { profileId } = request.params as { profileId: string };
+    const { name, isKids, avatar } = request.body as any;
+
+    const user = await UserModel.findById(userId);
+    if (!user) return reply.status(404).send({ success: false, message: 'User not found' });
+
+    const profile = (user as any).profiles.id(profileId);
+    if (!profile) return reply.status(404).send({ success: false, message: 'Profile not found' });
+
+    if (name) profile.name = name;
+    if (isKids !== undefined) {
+      profile.isKids = isKids;
+      profile.maturityLevel = isKids ? 7 : 18;
+    }
+    if (avatar !== undefined) profile.avatar = avatar;
+
+    await user.save();
+    return reply.send({ success: true, data: profile, message: 'Profile updated successfully' });
+  } catch (error: any) {
+    logger.error({ error }, 'Error updating profile');
+    return reply.status(500).send({ success: false, message: 'Failed to update profile' });
+  }
+};
+
+// ── DELETE /api/app/profiles/:profileId ──────────────────────────────────────
+export const deleteProfile = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const userId = getOptionalUserId(request);
+    if (!userId) return reply.status(401).send({ success: false, message: 'Unauthorized' });
+
+    const { profileId } = request.params as { profileId: string };
+
+    const user = await UserModel.findById(userId);
+    if (!user) return reply.status(404).send({ success: false, message: 'User not found' });
+
+    if ((user as any).profiles.length <= 1) {
+      return reply.status(400).send({ success: false, message: 'Cannot delete the last profile' });
+    }
+
+    (user as any).profiles.pull(profileId);
+    await user.save();
+
+    return reply.send({ success: true, message: 'Profile deleted successfully' });
+  } catch (error: any) {
+    logger.error({ error }, 'Error deleting profile');
+    return reply.status(500).send({ success: false, message: 'Failed to delete profile' });
   }
 };

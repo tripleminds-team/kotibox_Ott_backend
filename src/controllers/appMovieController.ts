@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import mongoose from 'mongoose';
 import { MovieModel } from '../models/Movie';
 import { ContentModel } from '../models/Content';
+import { UserModel } from '../models/User';
 import { UserLikeModel } from '../models/UserLike';
 import { UserWishlistModel } from '../models/UserWishlist';
 import { UserWatchProgressModel } from '../models/UserWatchProgress';
@@ -39,14 +40,20 @@ const toAbsoluteUrl = (
   return `${baseUrl}${relPath}`;
 };
 
-// Helper: try to extract userId from JWT without throwing
-const getOptionalUserId = (request: FastifyRequest): string | null => {
+// Helper: try to extract userId and plan from JWT without throwing
+const getOptionalUser = async (request: FastifyRequest): Promise<{ userId: string; userPlan: string } | null> => {
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return null;
     const server = request.server as any;
     const decoded = server.jwt.verify(authHeader.slice(7)) as any;
-    return decoded?.id || null;
+    if (!decoded?.id) return null;
+
+    const user = await UserModel.findById(decoded.id).select('subscriptionPlan subscriptionStatus subscriptionExpiry').lean();
+    if (!user) return { userId: decoded.id, userPlan: 'free' };
+
+    const isActive = user.subscriptionStatus === 'active' && (!user.subscriptionExpiry || user.subscriptionExpiry > new Date());
+    return { userId: decoded.id, userPlan: isActive ? (user.subscriptionPlan || 'free') : 'free' };
   } catch {
     return null;
   }
@@ -63,7 +70,9 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
       return reply.status(400).send({ success: false, message: 'Invalid movie ID.' });
     }
 
-    const userId = getOptionalUserId(request);
+    const userInfo = await getOptionalUser(request);
+    const userId = userInfo?.userId || null;
+    const userPlan = userInfo?.userPlan || 'free';
 
     // ── 1. Fetch Movie with populated cast/crew/genres ────────────────────────
     const movie = await MovieModel.findById(id)
@@ -245,7 +254,7 @@ export const getMovieDetail = async (request: FastifyRequest, reply: FastifyRepl
           { value: 1.75, label: '1.75x' },
           { value: 2.0, label: '2.0x' }
         ],
-        isLocked: movie.planRequired !== 'free',
+        isLocked: movie.planRequired !== 'free' && userPlan === 'free',
 
         // Meta
         genres: genreNames,

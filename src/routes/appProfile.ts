@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { getAppProfile, updateVideoQuality, updatePreferredLanguage, deleteAppAccount, updateAppProfile, uploadAppAvatar } from '../controllers/appProfileController';
+import { getAppProfile, updateVideoQuality, updatePreferredLanguage, deleteAppAccount, updateAppProfile, uploadAppAvatar, getDevices, removeDevice, getProfiles, createProfile, updateProfile, deleteProfile } from '../controllers/appProfileController';
 
 const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/app/profile
@@ -19,6 +19,24 @@ const appProfileRoutes: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /api/app/profile
   fastify.delete('/profile', deleteAppAccount);
+
+  // GET /api/app/devices
+  fastify.get('/devices', getDevices);
+
+  // DELETE /api/app/devices/:deviceId
+  fastify.delete('/devices/:deviceId', removeDevice);
+
+  // GET /api/app/profiles
+  fastify.get('/profiles', getProfiles);
+
+  // POST /api/app/profiles
+  fastify.post('/profiles', createProfile);
+
+  // PUT /api/app/profiles/:profileId
+  fastify.put('/profiles/:profileId', updateProfile);
+
+  // DELETE /api/app/profiles/:profileId
+  fastify.delete('/profiles/:profileId', deleteProfile);
 };
 
 export default appProfileRoutes;

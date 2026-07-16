@@ -120,3 +120,71 @@ export const recordAdInteraction = async (request: FastifyRequest, reply: Fastif
   }
 };
 
+// --- Ad Analytics Endpoint ---
+
+export const getAdAnalytics = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const now = new Date();
+
+    // Aggregate all ads
+    const ads = await AdModel.find({}).select('adName adType placement status impressions clicks startDate endDate').lean();
+
+    const totalImpressions = ads.reduce((sum, a) => sum + (a.impressions || 0), 0);
+    const totalClicks = ads.reduce((sum, a) => sum + (a.clicks || 0), 0);
+    const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0;
+
+    // Active ads (currently running)
+    const activeAds = ads.filter(a => a.status === 'active' && new Date(a.startDate) <= now && new Date(a.endDate) >= now);
+
+    // Breakdown by ad type
+    const byType: Record<string, { impressions: number; clicks: number; count: number }> = {};
+    for (const ad of ads) {
+      const t = ad.adType || 'Custom';
+      if (!byType[t]) byType[t] = { impressions: 0, clicks: 0, count: 0 };
+      byType[t].impressions += ad.impressions || 0;
+      byType[t].clicks += ad.clicks || 0;
+      byType[t].count += 1;
+    }
+
+    // Breakdown by placement
+    const byPlacement: Record<string, { impressions: number; clicks: number; count: number }> = {};
+    for (const ad of ads) {
+      const p = ad.placement || 'Unknown';
+      if (!byPlacement[p]) byPlacement[p] = { impressions: 0, clicks: 0, count: 0 };
+      byPlacement[p].impressions += ad.impressions || 0;
+      byPlacement[p].clicks += ad.clicks || 0;
+      byPlacement[p].count += 1;
+    }
+
+    // Top performing ads
+    const topAds = [...ads]
+      .sort((a, b) => (b.impressions || 0) - (a.impressions || 0))
+      .slice(0, 5)
+      .map(a => ({
+        id: a._id,
+        adName: a.adName,
+        adType: a.adType,
+        placement: a.placement,
+        impressions: a.impressions || 0,
+        clicks: a.clicks || 0,
+        ctr: (a.impressions || 0) > 0 ? (((a.clicks || 0) / (a.impressions || 0)) * 100).toFixed(2) : '0.00',
+      }));
+
+    return reply.send({
+      success: true,
+      data: {
+        totalAds: ads.length,
+        activeAds: activeAds.length,
+        totalImpressions,
+        totalClicks,
+        ctr: ctr.toFixed(2),
+        byType,
+        byPlacement,
+        topAds,
+      }
+    });
+  } catch (error: any) {
+    return reply.status(500).send({ success: false, error: error.message });
+  }
+};
+

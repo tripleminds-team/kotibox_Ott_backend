@@ -37,6 +37,7 @@ export interface IAdminUser extends Document {
   isActive: boolean;
   lastLogin?: Date;
   loginCount: number;
+  walletBalance: number;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -109,6 +110,7 @@ const AdminUserSchema = new Schema<IAdminUser>(
     isActive: { type: Boolean, default: true },
     lastLogin: Date,
     loginCount: { type: Number, default: 0 },
+    walletBalance: { type: Number, default: 0 },
     createdBy: { type: Schema.Types.ObjectId, ref: 'AdminUser' },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }

@@ -8,6 +8,7 @@ import { UserWishlistModel } from '../models/UserWishlist';
 import { UserDownloadModel } from '../models/UserDownload';
 import { UserModel } from '../models/User';
 import { UserWatchProgressModel } from '../models/UserWatchProgress';
+import { UnlockedEpisodeModel } from '../models/UnlockedEpisode';
 import '../models/Actor';
 import '../models/Director';
 import { logger } from '../lib/logger';
@@ -23,7 +24,7 @@ const PLAN_LEVELS: Record<string, number> = {
 
 import { buildShareUrl } from '../lib/config';
 
-const getOptionalUser = async (request: FastifyRequest): Promise<{ userId: string; userPlan: string } | null> => {
+const getOptionalUser = async (request: FastifyRequest): Promise<{ userId: string; userPlan: string; profileId?: string } | null> => {
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return null;
@@ -34,8 +35,10 @@ const getOptionalUser = async (request: FastifyRequest): Promise<{ userId: strin
     const user = await UserModel.findById(decoded.id).select('subscriptionPlan subscriptionStatus subscriptionExpiry').lean();
     if (!user) return null;
 
+    const profileId = request.headers['x-profile-id'] as string | undefined;
+
     const isActive = user.subscriptionStatus === 'active' && (!user.subscriptionExpiry || user.subscriptionExpiry > new Date());
-    return { userId: decoded.id, userPlan: isActive ? (user.subscriptionPlan || 'free') : 'free' };
+    return { userId: decoded.id, userPlan: isActive ? (user.subscriptionPlan || 'free') : 'free', profileId };
   } catch {
     return null;
   }
@@ -186,6 +189,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
     const userInfo = await getOptionalUser(request);
     const userId = userInfo?.userId || null;
     const userPlan = userInfo?.userPlan || 'free';
+    const profileId = userInfo?.profileId || null;
 
     // Cast userId to ObjectId once for ALL DB lookups
     const userObjectId = userId ? new mongoose.Types.ObjectId(userId) : null;
@@ -195,7 +199,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
 
     // Default to last watched episode if user is logged in and query is not specified
     if (userObjectId && (requestedSeason === null || requestedEpisode === null)) {
-      const lastProgress = await UserWatchProgressModel.findOne({ userId: userObjectId, contentId })
+      const lastProgress = await UserWatchProgressModel.findOne({ userId: userObjectId, contentId, profileId })
         .sort({ lastWatchedAt: -1 })
         .populate('episodeId')
         .lean();
@@ -320,7 +324,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       
       let watchProgress = null;
       if (userObjectId) {
-        const progressDoc = await UserWatchProgressModel.findOne({ userId: userObjectId, contentId: content._id, episodeId: null }).lean();
+        const progressDoc = await UserWatchProgressModel.findOne({ userId: userObjectId, contentId: content._id, episodeId: null, profileId }).lean();
         if (progressDoc) {
           watchProgress = {
             progressSeconds: progressDoc.progressSeconds,
@@ -356,7 +360,8 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
     else {
       const allEpisodes = await EpisodeModel.find({ contentId: content._id }).sort({ season: 1, episode: 1 }).lean();
 
-      // Fetch which episodes the user has liked (episode-level likes)
+      // Fetch which episodes the user has liked (episode-level likes) and unlocked
+      const unlockedEpisodeIdSet = new Set<string>();
       if (userObjectId && allEpisodes.length > 0) {
         const episodeIds = allEpisodes.map(ep => ep._id);
         const episodeLikes = await UserLikeModel.find({
@@ -366,6 +371,14 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
         }).select('episodeId').lean();
         episodeLikes.forEach(l => {
           if (l.episodeId) likedEpisodeIdSet.add(l.episodeId.toString());
+        });
+
+        const unlockedEps = await UnlockedEpisodeModel.find({
+          userId: userObjectId,
+          episodeId: { $in: episodeIds },
+        }).select('episodeId').lean();
+        unlockedEps.forEach(u => {
+          if (u.episodeId) unlockedEpisodeIdSet.add(u.episodeId.toString());
         });
       }
       
@@ -381,7 +394,11 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
       episodeMeta = `${requestedEpisode} of ${totalEpisodes} Episodes • Season ${requestedSeason} • ${genresText}`;
 
       const mapEpisode = (ep: any) => {
-        const accessible = canAccessItem(ep.isFree, ep.isLocked || contentPlan !== 'free', contentPlan, userPlan);
+        let accessible = canAccessItem(ep.isFree, ep.isLocked || contentPlan !== 'free', contentPlan, userPlan);
+        // Subscribers also bypass locked status for episode unlocking
+        if (userPlan !== 'free') accessible = true; 
+        if (unlockedEpisodeIdSet.has(ep._id.toString())) accessible = true;
+
         return {
           id: ep._id.toString(),
           season: ep.season,
@@ -390,6 +407,8 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
           duration: ep.duration || null,
           isFree: ep.isFree,
           isLocked: !accessible,
+          isLockedForUser: !accessible,
+          coinsRequired: ep.coinsRequired || 0,
           hlsUrl: accessible ? toAbsoluteUrl(request, ep.hlsUrl, s3Active, s3BaseUrl) : null,
           trailerUrl: toAbsoluteUrl(request, ep.trailerUrl, s3Active, s3BaseUrl),
           likeCount: ep.likes || 0,
@@ -435,6 +454,7 @@ export const getWatchData = async (request: FastifyRequest, reply: FastifyReply)
             userId: userObjectId,
             contentId: content._id,
             episodeId: currentEpisodeRaw._id,
+            profileId
           }).lean();
           if (progressDoc) {
             watchProgress = {

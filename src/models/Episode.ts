@@ -30,6 +30,7 @@ export interface IEpisode extends Document {
   airDate?: Date;
   isFree: boolean;
   isLocked: boolean;
+  coinsRequired: number;
   processingStatus: 'queued' | 'processing' | 'ready' | 'failed';
   processingError?: string;
   createdAt: Date;
@@ -67,6 +68,7 @@ const EpisodeSchema = new Schema<IEpisode>(
     airDate: Date,
     isFree: { type: Boolean, default: false },
     isLocked: { type: Boolean, default: true, index: true },
+    coinsRequired: { type: Number, default: 0 },
     processingStatus: {
       type: String,
       enum: ['queued', 'processing', 'ready', 'failed'],

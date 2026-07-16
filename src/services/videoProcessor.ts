@@ -526,9 +526,10 @@ export const autoDetectAndSyncQualities = async (
   id: Types.ObjectId | string,
   type: 'movie' | 'episode'
 ): Promise<any> => {
-  const model = type === 'movie' ? MovieModel : EpisodeModel;
   const folderName = type === 'movie' ? 'movies' : 'episodes';
-  const doc = await (model.findById(id) as any).lean();
+  const doc = type === 'movie' 
+    ? await MovieModel.findById(id).lean() 
+    : await EpisodeModel.findById(id).lean();
   if (!doc) return null;
 
   const hlsFolder = path.join(process.cwd(), 'uploads/hls', folderName, id.toString());
@@ -608,15 +609,16 @@ export const autoDetectAndSyncQualities = async (
           processingError: null,
         };
 
-        if (doc.status === 'draft' || !doc.status) {
+        if ((doc as any).status === 'draft' || !(doc as any).status) {
           updateData.status = 'published';
         }
 
-        const updatedDoc = await model.findByIdAndUpdate(
-          id,
-          { $set: updateData },
-          { new: true }
-        ).lean();
+        let updatedDoc;
+        if (type === 'movie') {
+          updatedDoc = await MovieModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).lean();
+        } else {
+          updatedDoc = await EpisodeModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).lean();
+        }
         return updatedDoc;
       }
     }

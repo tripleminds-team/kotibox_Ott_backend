@@ -1,4 +1,5 @@
 import { requirePermission } from '../middlewares/rbac';
+import { authenticate } from '../middlewares/auth';
 import type { FastifyPluginAsync } from 'fastify';
 import {
   listSubscriptions,
@@ -19,9 +20,9 @@ const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete('/subscriptions/:id', { onRequest: [requirePermission('subscriptions', 'canDelete')] }, deleteSubscription);
   fastify.post('/subscriptions/bulk-delete', { onRequest: [requirePermission('subscriptions', 'canDelete')] }, bulkDeleteSubscriptions);
   
-  // Razorpay
-  fastify.post('/subscriptions/razorpay/order', { onRequest: [requirePermission('subscriptions', 'canCreate')] }, createRazorpayOrder);
-  fastify.post('/subscriptions/razorpay/verify', { onRequest: [requirePermission('subscriptions', 'canCreate')] }, verifyRazorpayPayment);
+  // Razorpay — user-facing (any authenticated user, not just admins)
+  fastify.post('/app/subscription/razorpay/order', { preHandler: [authenticate] }, createRazorpayOrder);
+  fastify.post('/app/subscription/razorpay/verify', { preHandler: [authenticate] }, verifyRazorpayPayment);
 };
 
 export default subscriptionRoutes;

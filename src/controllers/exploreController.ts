@@ -86,6 +86,7 @@ const mapContentItem = (
   firstEpisodeThumbnail: toAbsoluteUrl(request, firstEpisode?.thumbnail || item.thumbnail) || null,
   firstEpisodeDuration: firstEpisode?.duration || null,
   firstEpisodeIsFree: firstEpisode?.isFree ?? null,
+  contentPlan: item.plan || 'free',
 });
 
 // Get explore page data (infinite scroll, short-drama reel style)

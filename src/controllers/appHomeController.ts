@@ -39,17 +39,20 @@ const buildUrlResolver = (request: FastifyRequest, s3Active: boolean, s3BaseUrl:
   };
 
 // Helper: try to extract userId from JWT (optional auth — no error if missing/invalid)
-const getOptionalUserId = (request: FastifyRequest): string | null => {
+const getAuthData = (request: FastifyRequest): { userId: string | null; profileId: string | null; userPlan: string } => {
+  let userId = null;
+  let profileId = (request.headers['x-profile-id'] as string) || null;
+  let userPlan = 'free';
   try {
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.slice(7);
-    const server = request.server as any;
-    const decoded = server.jwt.verify(token) as any;
-    return decoded?.id || null;
-  } catch {
-    return null;
-  }
+    if (authHeader?.startsWith('Bearer ')) {
+      const server = request.server as any;
+      const decoded = server.jwt.verify(authHeader.slice(7)) as any;
+      userId = decoded?.id || null;
+      userPlan = decoded?.plan || 'free';
+    }
+  } catch {}
+  return { userId, profileId, userPlan };
 };
 
 
@@ -98,6 +101,7 @@ const mapContentItem = (
   firstEpisodeThumbnail: resolveUrl(firstEpisode?.thumbnail || item.thumbnail || null),
   firstEpisodeDuration: firstEpisode?.duration || null,
   firstEpisodeIsFree: firstEpisode?.isFree ?? null,
+  contentPlan: item.plan || 'free',
 });
 
 const populateBannersContent = async (banners: any[]) => {
@@ -198,7 +202,7 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     const tab = query.tab || 'drama';
     const limit = Math.min(20, Math.max(1, Number(query.limit || 10)));
     
-    const userId = getOptionalUserId(request);
+    const { userId, profileId } = getAuthData(request);
 
     // Build URL resolver (S3 or local)
     const s3Active = await isS3Configured();
@@ -327,14 +331,30 @@ export const getHomePage = async (request: FastifyRequest, reply: FastifyReply) 
     // ── Fetch Continue Watching Progress ──────────────────────────────────────
     let watchProgressList: any[] = [];
     if (userId) {
-      watchProgressList = await UserWatchProgressModel.find({
+      const queryParams: any = {
         userId,
         contentModelType: tab === 'movie' ? 'Movie' : 'Content',
-      })
+      };
+      if (profileId) {
+        queryParams.profileId = profileId;
+      }
+      const rawProgressList = await UserWatchProgressModel.find(queryParams)
         .sort({ lastWatchedAt: -1 })
-        .limit(10)
+        .limit(50) // Fetch more to allow for deduplication
         .populate('episodeId')
         .lean();
+        
+      // Deduplicate by contentId, keeping the most recent
+      const seenContentIds = new Set();
+      for (const progress of rawProgressList) {
+        if (!progress.contentId) continue;
+        const cid = progress.contentId.toString();
+        if (!seenContentIds.has(cid)) {
+          watchProgressList.push(progress);
+          seenContentIds.add(cid);
+        }
+        if (watchProgressList.length >= 10) break;
+      }
     }
 
     // ── Aggregate Data (Episodes & Likes) ─────────────────────────────────────
@@ -506,8 +526,8 @@ export const getAppBanners = async (request: FastifyRequest, reply: FastifyReply
     // contentType: 'movie' → movie only
     // contentType: 'both'  → show in all tabs
     const contentTypeFilter = tab === 'both'
-      ? { contentType: { $in: ['drama', 'movie', 'both'] } }
-      : { contentType: { $in: [tab, 'both'] } };
+      ? { contentType: { $in: ['drama', 'movie', 'both'] as const } }
+      : { contentType: { $in: [tab, 'both'] as const } };
 
     const bannersRaw = await BannerModel.find({
       isActive: true,
@@ -524,7 +544,7 @@ export const getAppBanners = async (request: FastifyRequest, reply: FastifyReply
 
     const banners = await populateBannersContent(bannersRaw);
 
-    const userId = getOptionalUserId(request);
+    const { userId } = getAuthData(request);
     const allContentIds = banners
       .filter(b => b.contentId)
       .map(b => new mongoose.Types.ObjectId((b.contentId as any)._id.toString()));

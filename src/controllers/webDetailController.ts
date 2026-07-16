@@ -3,6 +3,9 @@ import { MovieModel } from '../models/Movie';
 import { ContentModel } from '../models/Content';
 import { EpisodeModel } from '../models/Episode';
 import { logger } from '../lib/logger';
+import { requestContext } from '../lib/context';
+import { UserModel } from '../models/User';
+import { UnlockedEpisodeModel } from '../models/UnlockedEpisode';
 
 export const getWebDetail = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -166,10 +169,38 @@ export const getWebDetail = async (request: FastifyRequest, reply: FastifyReply)
     if (!isMovie) {
       const eps = await EpisodeModel.find({ contentId: item._id })
         .sort({ season: 1, episode: 1 })
-        .select('title description thumbnail hlsUrl sourceVideoUrl duration season episode isFree isLocked videoQualities')
+        .select('title description thumbnail hlsUrl sourceVideoUrl duration season episode isFree isLocked coinsRequired videoQualities')
         .lean();
+
+      // Check user context for unlocking
+      const userCtx = requestContext.getStore()?.user;
+      let isSubscribed = false;
+      let unlockedEpisodeIds = new Set<string>();
+
+      if (userCtx) {
+        const dbUser = await UserModel.findById(userCtx.id).select('subscriptionStatus');
+        if (dbUser?.subscriptionStatus === 'active') {
+          isSubscribed = true;
+        } else {
+          const unlocked = await UnlockedEpisodeModel.find({ userId: userCtx.id }).select('episodeId').lean();
+          unlocked.forEach(u => unlockedEpisodeIds.add(u.episodeId.toString()));
+        }
+      }
+
       episodes = eps.map((e: any) => {
-        const epHlsUrl = e.hlsUrl || e.sourceVideoUrl;
+        let epHlsUrl = e.hlsUrl || e.sourceVideoUrl;
+        const isLocked = e.isLocked ?? !e.isFree;
+        
+        // Determine if user has access
+        let hasAccess = false;
+        if (!isLocked || e.isFree) hasAccess = true;
+        else if (isSubscribed) hasAccess = true;
+        else if (unlockedEpisodeIds.has(e._id.toString())) hasAccess = true;
+
+        if (!hasAccess) {
+          epHlsUrl = null; // Hide the URL
+        }
+
         const epQualities: any[] = e.videoQualities || [];
         const epVideoSettings = epHlsUrl
           ? [
@@ -197,7 +228,9 @@ export const getWebDetail = async (request: FastifyRequest, reply: FastifyReply)
           season: e.season,
           episode: e.episode,
           isFree: e.isFree,
-          isLocked: e.isLocked ?? !e.isFree,
+          isLocked,
+          isLockedForUser: !hasAccess,
+          coinsRequired: e.coinsRequired || 0,
           videoSettings: epVideoSettings,
         };
       });

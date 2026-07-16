@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { UserModel } from '../models/User';
+import { SubscriptionPlanModel } from '../models/SubscriptionPlan';
+import { PlanLimitModel } from '../models/PlanLimit';
 import { LanguageModel } from '../models/Language';
 import { MessageCentralService } from '../services/messageCentralService';
 import mongoose from 'mongoose';
@@ -21,6 +23,8 @@ const verifyOtpSchema = z.object({
   mobileNumber: z.string().regex(/^\d{10}$/, 'Mobile number must be 10 digits'),
   verificationId: z.string().optional(),
   otp: z.string().regex(/^\d{4}$/, 'OTP must be 4 digits'),
+  deviceId: z.string().optional(),
+  deviceName: z.string().optional(),
 });
 
 const setLanguageSchema = z.object({
@@ -65,7 +69,7 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
         errors: body.error.flatten().fieldErrors,
       });
     }
-    const { mobileNumber, verificationId, otp } = body.data;
+    const { mobileNumber, verificationId, otp, deviceId, deviceName } = body.data;
 
     const verifyResult = await messageCentralService.verifyOtp(verificationId, otp);
     if (!verifyResult.success) {
@@ -75,16 +79,17 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
       });
     }
 
-    let user = await UserModel.findOne({ phone: mobileNumber });
+    // ── Find ALL accounts with this phone number ──────────────────────────────
+    // A user may have a real web account (email+phone) AND a temp OTP account
+    // (phone + temp email like 8306690426@temp.local). We must prefer the real one.
+    const allUsersWithPhone = await UserModel.find({ phone: mobileNumber }).lean();
 
-    if (!user) {
-      const newProfile = {
-        name: 'User',
-        isKids: false,
-        maturityLevel: 18,
-        language: 'Hindi',
-      };
-      user = new UserModel({
+    let user: any = null;
+
+    if (allUsersWithPhone.length === 0) {
+      // Brand new user — create temp account
+      const newProfile = { name: 'User', isKids: false, maturityLevel: 18, language: 'Hindi' };
+      const newUser = new UserModel({
         phone: mobileNumber,
         name: 'User',
         email: `${mobileNumber}@temp.local`,
@@ -92,38 +97,117 @@ export const verifyOtp = async (request: FastifyRequest, reply: FastifyReply) =>
         preferredLanguage: 'Hindi',
         languageSelectionSkipped: false,
       });
-      await user.save();
+      await newUser.save();
+      user = newUser;
+    } else if (allUsersWithPhone.length === 1) {
+      // Single account — use it directly
+      user = allUsersWithPhone[0];
     } else {
-      if (user.status === 'banned' || user.status === 'suspended') {
-        return reply.status(403).send({
-          success: false,
-          message: user.banReason ? `Your account has been suspended: ${user.banReason}` : 'Your account has been suspended.'
-        });
+      // Multiple accounts — prefer the one with a real (non-temp) email
+      const realAccount = allUsersWithPhone.find(
+        (u) => u.email && !u.email.endsWith('@temp.local')
+      );
+      const tempAccount = allUsersWithPhone.find(
+        (u) => u.email && u.email.endsWith('@temp.local')
+      );
+
+      user = realAccount || allUsersWithPhone[0];
+
+      // Clean up orphan temp account to prevent future confusion
+      if (realAccount && tempAccount) {
+        console.log(`[verifyOtp] Merging temp account ${tempAccount._id} into real account ${realAccount._id} for phone ${mobileNumber}`);
+        await UserModel.findByIdAndDelete(tempAccount._id);
       }
-      user.lastLogin = new Date();
-      user.loginCount += 1;
-      await user.save();
     }
+
+    // Re-fetch as a full mongoose doc so we can .save()
+    const userDoc = await UserModel.findById(user._id);
+    if (!userDoc) {
+      return reply.status(404).send({ success: false, message: 'User not found' });
+    }
+
+    if (userDoc.status === 'banned' || userDoc.status === 'suspended') {
+      return reply.status(403).send({
+        success: false,
+        message: userDoc.banReason ? `Your account has been suspended: ${userDoc.banReason}` : 'Your account has been suspended.'
+      });
+    }
+
+    // ── Manage Device Limits ──────────────────────────────────────────────────
+    if (deviceId) {
+      // Find plan limits
+      let deviceLimitCount = 1; // Default
+      const planName = userDoc.subscriptionPlan || 'free';
+      const isActive = userDoc.subscriptionStatus === 'active' && 
+                       (!userDoc.subscriptionExpiry || userDoc.subscriptionExpiry > new Date());
+                       
+      if (isActive && planName !== 'free') {
+        const plan = await SubscriptionPlanModel.findOne({ name: planName }).lean();
+        if (plan) {
+          const limit = await PlanLimitModel.findOne({ planId: plan._id }).lean();
+          if (limit) {
+            deviceLimitCount = limit.deviceLimitCount;
+          }
+        }
+      }
+
+      const devices = (userDoc as any).devices || [];
+      const existingDeviceIndex = devices.findIndex((d: any) => d.deviceId === deviceId);
+
+      if (existingDeviceIndex !== -1) {
+        // Device already exists, just update timestamp
+        devices[existingDeviceIndex].lastActive = new Date();
+        devices[existingDeviceIndex].deviceName = deviceName || devices[existingDeviceIndex].deviceName;
+      } else {
+        // New device
+        const newDevice = {
+          deviceId,
+          deviceName: deviceName || 'Unknown Device',
+          deviceType: 'mobile',
+          lastActive: new Date(),
+          addedAt: new Date()
+        };
+        
+        // Enforce limit by removing oldest if necessary
+        while (devices.length >= deviceLimitCount) {
+          // Sort by oldest lastActive
+          devices.sort((a: any, b: any) => new Date(a.lastActive).getTime() - new Date(b.lastActive).getTime());
+          devices.shift(); // Remove oldest
+        }
+        devices.push(newDevice);
+      }
+      (userDoc as any).devices = devices;
+    }
+
+    userDoc.lastLogin = new Date();
+    userDoc.loginCount = (userDoc.loginCount || 0) + 1;
+    await userDoc.save();
 
     const server = request.server as any;
     const tokenPayload = {
-      id: user._id.toString(),
-      name: user.name,
-      phone: user.phone,
+      id: userDoc._id.toString(),
+      name: userDoc.name,
+      phone: (userDoc as any).phone,
       role: 'user' as const,
     };
     const accessToken = server.jwt.sign(tokenPayload, {
       expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d',
     });
 
+    // Return full profile so the app can pre-fill name, email, avatar, subscription
     return reply.status(200).send({
       success: true,
       accessToken,
-      userId: user._id.toString(),
-      name: user.name,
-      avatar: user.avatar || null,
-      subscriptionPlan: user.subscriptionPlan || 'free',
-      subscriptionStatus: user.subscriptionStatus || 'inactive',
+      userId: userDoc._id.toString(),
+      name: userDoc.name,
+      email: (userDoc as any).email && !(userDoc as any).email.endsWith('@temp.local')
+        ? (userDoc as any).email
+        : null,
+      phone: (userDoc as any).phone || null,
+      avatar: (userDoc as any).avatar || null,
+      subscriptionPlan: userDoc.subscriptionPlan || 'free',
+      subscriptionStatus: userDoc.subscriptionStatus || 'inactive',
+      subscriptionExpiry: (userDoc as any).subscriptionExpiry || null,
       expiresIn: 604800, // 7 days in seconds
     });
   } catch (error) {
@@ -316,7 +400,8 @@ export const loginUser = async (request: FastifyRequest, reply: FastifyReply) =>
     await user.save();
     const server = request.server as any;
     const accessToken = server.jwt.sign({ id: user._id.toString(), name: user.name, role: 'user' }, { expiresIn: process.env.MOBILE_JWT_EXPIRES_IN || '7d' });
-    return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), name: user.name, avatar: user.avatar || null, subscriptionPlan: user.subscriptionPlan || 'free', subscriptionStatus: user.subscriptionStatus || 'inactive', expiresIn: 604800 });
+    return reply.status(200).send({ success: true, accessToken, userId: user._id.toString(), name: user.name, email: user.email || null, phone: (user as any).phone || null, avatar: user.avatar || null, subscriptionPlan: user.subscriptionPlan || 'free', subscriptionStatus: user.subscriptionStatus || 'inactive', subscriptionExpiry: user.subscriptionExpiry || null, walletBalance: user.walletBalance || 0, profileLimitCount: (user as any).profileLimitCount || 1, expiresIn: 604800 });
+
   } catch (error) {
     console.error('Login Error:', error);
     return reply.status(500).send({ success: false, message: 'Internal server error' });

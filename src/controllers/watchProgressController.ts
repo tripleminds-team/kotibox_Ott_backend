@@ -18,9 +18,9 @@ export const saveWatchProgress = async (request: FastifyRequest, reply: FastifyR
       episodeId?: string;
       progressSeconds?: number;
       durationSeconds?: number;
-      profileId?: string;
     };
-    const { contentId, episodeId, progressSeconds, durationSeconds, profileId } = body;
+    const { contentId, episodeId, progressSeconds, durationSeconds } = body;
+    const profileId = request.headers['x-profile-id'] as string | undefined;
 
     if (!contentId || progressSeconds === undefined || durationSeconds === undefined) {
       return reply.status(400).send({ success: false, message: 'contentId, progressSeconds, and durationSeconds are required.' });
@@ -64,6 +64,13 @@ export const saveWatchProgress = async (request: FastifyRequest, reply: FastifyR
     };
 
     const percent = Math.min(100, Math.max(0, Math.round((progressSeconds / durationSeconds) * 100)));
+
+    const existingProgress = await UserWatchProgressModel.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      contentId: new mongoose.Types.ObjectId(contentId),
+      episodeId: episodeId ? new mongoose.Types.ObjectId(episodeId) : null,
+      profileId: profileId || null
+    });
 
     const progressDoc = await UserWatchProgressModel.findOneAndUpdate(
       filter,

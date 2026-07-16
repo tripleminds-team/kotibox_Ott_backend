@@ -11,11 +11,11 @@ export interface ISection extends Document {
   position: number;
   isActive: boolean;
   // Layout options for the app
-  layout?: 'horizontal' | 'vertical' | 'grid-2' | 'grid-3' | 'reels'; // Horizontal scroll, vertical list, 2-column, 3-column, or reels-style
+  layout?: 'horizontal' | 'vertical' | 'grid-2' | 'grid-3' | 'reels' | 'grid' | 'ad';
   contentSelection?: 'dynamic' | 'manual' | 'mixed';
   manualContentIds?: mongoose.Types.ObjectId[] | string[];
   showViewAll?: boolean; // Whether to show "View All" button
-  itemType?: 'card' | 'poster' | 'thumbnail'; // Type of item display
+  itemType?: 'card' | 'poster' | 'thumbnail' | 'landscape' | 'portrait' | 'drama' | 'home-banner' | 'google-adsense';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,7 +27,7 @@ const SectionSchema = new Schema<ISection>(
     category: { type: String, required: true },
     contentType: {
       type: String,
-      enum: ['drama', 'movie'],
+      enum: ['drama', 'movie', 'mixed'],
       default: 'drama',
       index: true,
     },
@@ -39,7 +39,7 @@ const SectionSchema = new Schema<ISection>(
     // Layout fields
     layout: { 
       type: String, 
-      enum: ['horizontal', 'vertical', 'grid-2', 'grid-3', 'reels'], 
+      enum: ['horizontal', 'vertical', 'grid-2', 'grid-3', 'reels', 'grid', 'ad'], 
       default: 'horizontal' 
     },
     // Content selection mode
@@ -52,7 +52,7 @@ const SectionSchema = new Schema<ISection>(
     showViewAll: { type: Boolean, default: true },
     itemType: { 
       type: String, 
-      enum: ['card', 'poster', 'thumbnail'], 
+      enum: ['card', 'poster', 'thumbnail', 'landscape', 'portrait', 'drama', 'home-banner', 'google-adsense'], 
       default: 'poster' 
     },
   },

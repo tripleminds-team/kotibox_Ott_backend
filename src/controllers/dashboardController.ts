@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { UserModel } from '../models/User';
 import { SubscriptionModel } from '../models/Subscription';
+import { TransactionModel } from '../models/Transaction';
 import { ContentModel } from '../models/Content';
 import { MovieModel } from '../models/Movie';
 import { GenreModel } from '../models/Genre';
@@ -60,11 +61,13 @@ export const getDashboardStats = async (request: FastifyRequest, reply: FastifyR
       activeSubscriptions,
       totalContent,
       totalMovies,
+      totalWalletTransactions,
     ] = await Promise.all([
       UserModel.countDocuments(),
       SubscriptionModel.countDocuments({ status: 'active' }),
       ContentModel.countDocuments(),
-      MovieModel.countDocuments()
+      MovieModel.countDocuments(),
+      TransactionModel.countDocuments(),
     ]);
 
     const soonToExpire = await SubscriptionModel.countDocuments({
@@ -74,12 +77,21 @@ export const getDashboardStats = async (request: FastifyRequest, reply: FastifyR
       },
     });
 
-    const totalSubscriptionRevenue = await SubscriptionModel.aggregate([
-      { $match: { status: 'active' } },
-      { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+    const [totalSubscriptionRevenue, coinRevenueResult] = await Promise.all([
+      SubscriptionModel.aggregate([
+        { $match: { status: 'active' } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+      ]),
+      TransactionModel.aggregate([
+        { $match: { type: 'coin_topup', status: 'completed' } },
+        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
+      ]),
     ]);
 
-    const totalRevenue = totalSubscriptionRevenue[0]?.total || 0;
+    const subscriptionRevenue = totalSubscriptionRevenue[0]?.total || 0;
+    const totalCoinRevenue = coinRevenueResult[0]?.total || 0;
+    const totalCoinTransactions = coinRevenueResult[0]?.count || 0;
+    const totalRevenue = subscriptionRevenue + totalCoinRevenue;
     const totalReviews = await ReviewModel.countDocuments();
 
     // Fetch dynamic currency settings
@@ -98,9 +110,12 @@ export const getDashboardStats = async (request: FastifyRequest, reply: FastifyR
         totalReviews,
         totalStorageUsage: 'Dynamic MB', // Placeholder for actual S3 calculation if needed
         restContent: totalContent + totalMovies,
-        subscriptionRevenue: formatValue(totalRevenue),
+        subscriptionRevenue: formatValue(subscriptionRevenue),
+        coinRevenue: formatValue(totalCoinRevenue),
         rentRevenue: formatValue(0), // Update if implementing rentals
         totalRevenue: formatValue(totalRevenue),
+        totalCoinTransactions,
+        totalWalletTransactions,
       },
     });
   } catch (error: any) {
@@ -282,12 +297,6 @@ export const getReviews = async (_request: FastifyRequest, reply: FastifyReply) 
 
 export const getTransactions = async (_request: FastifyRequest, reply: FastifyReply) => {
   try {
-    const transactions = await SubscriptionModel.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate('userId', 'name')
-      .lean();
-
     // Fetch dynamic currency settings
     const settings = await SettingsModel.findOne().lean();
     const symbol = settings?.currencySymbol || '₹';
@@ -295,19 +304,49 @@ export const getTransactions = async (_request: FastifyRequest, reply: FastifyRe
     const decimals = settings?.decimalPlaces ?? 2;
     const formatValue = (val: number) => position === 'before' ? `${symbol}${val.toFixed(decimals)}` : `${val.toFixed(decimals)} ${symbol}`;
 
-    const transactionsData = transactions.map((t: any) => ({
+    const [subscriptions, coinTransactions] = await Promise.all([
+      SubscriptionModel.find()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('userId', 'name')
+        .lean(),
+      TransactionModel.find({ type: { $in: ['coin_topup'] } })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('userId', 'name')
+        .lean(),
+    ]);
+
+    const subscriptionRows = subscriptions.map((t: any) => ({
       name: t.userId?.name || 'Deleted User',
       date: new Date(t.createdAt).toISOString().split('T')[0],
+      type: 'subscription' as const,
       plan: t.plan,
       amount: formatValue(t.totalAmount || 0),
-      duration: t.duration,
       method: t.paymentMethod || '-',
       avatar: t.userId?.name ? t.userId.name.charAt(0).toUpperCase() : 'D',
+      _createdAt: new Date(t.createdAt).getTime(),
     }));
+
+    const coinRows = coinTransactions.map((t: any) => ({
+      name: t.userId?.name || 'Deleted User',
+      date: new Date(t.createdAt).toISOString().split('T')[0],
+      type: 'coin_purchase' as const,
+      plan: `${t.coins} Coins`,
+      amount: formatValue(t.amount || 0),
+      method: 'Razorpay',
+      avatar: t.userId?.name ? t.userId.name.charAt(0).toUpperCase() : 'D',
+      _createdAt: new Date(t.createdAt).getTime(),
+    }));
+
+    const merged = [...subscriptionRows, ...coinRows]
+      .sort((a, b) => b._createdAt - a._createdAt)
+      .slice(0, 15)
+      .map(({ _createdAt, ...rest }) => rest);
 
     return reply.send({
       success: true,
-      data: transactionsData,
+      data: merged,
     });
   } catch (error: any) {
     return reply.status(500).send({ success: false, error: error.message });

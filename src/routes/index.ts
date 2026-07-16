@@ -36,6 +36,9 @@ import appProfileRoutes from './appProfile';
 import downloadRoutes from './download';
 import webDownloadRoutes from './webDownload';
 import watchProgressRoutes from './watchProgress';
+import rewardRoutes from './rewardRoutes';
+import appNotificationRoutes from './appNotificationRoutes';
+
 import { getHomePage } from '../controllers/appHomeController';
 import { getAppBanners } from '../controllers/appHomeController';
 import { getExplore } from '../controllers/exploreController';
@@ -48,8 +51,10 @@ import adRoutes from './ad';
 import adminNotificationsRoutes from './adminNotifications';
 import reviewRoutes from './review';
 import viewsRoutes from './views';
+import walletRoutes from './walletRoutes';
 
 const router: FastifyPluginAsync = async (fastify) => {
+  fastify.register(walletRoutes, { prefix: '/wallet' });
   fastify.register(viewsRoutes);
   fastify.register(reviewRoutes);
   fastify.register(adminNotificationsRoutes, { prefix: '/admin-notifications' });
@@ -108,6 +113,12 @@ const router: FastifyPluginAsync = async (fastify) => {
   // Watch progress routes (POST /watch/progress, DELETE /watch/progress/:contentId)
   fastify.register(watchProgressRoutes, { prefix: '/app' });
 
+  // Rewards routes
+  fastify.register(rewardRoutes, { prefix: '/app/rewards' });
+
+  // App Notifications routes
+  fastify.register(appNotificationRoutes, { prefix: '/app/notifications' });
+
   // Mobile movie detail page
   fastify.get('/app/movies/:id', getMovieDetail);
 
@@ -149,6 +160,7 @@ const router: FastifyPluginAsync = async (fastify) => {
       return reply.status(500).send({ success: false, error: error.message });
     }
   });
+
 };
 
 export default router;

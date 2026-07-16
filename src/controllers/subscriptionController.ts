@@ -92,8 +92,14 @@ const buildSubscriptionPayload = async (body: Record<string, any>, existing?: an
     ? new Date(body.endDate)
     : addDuration(startDate, duration, durationValue);
 
-  const price = roundCurrency(toNumber(body.price ?? body.amount, plan?.totalPrice ?? existing?.price ?? 0));
-  const discount = roundCurrency(toNumber(body.discount, existing?.discount ?? 0));
+  // The actual base price of the plan
+  const price = roundCurrency(toNumber(body.price ?? body.amount, plan?.price ?? existing?.price ?? 0));
+  
+  // The absolute monetary discount (plan.discount is a percentage)
+  const discountPercent = plan?.discount || 0;
+  const calculatedDiscount = price * (discountPercent / 100);
+  const discount = roundCurrency(toNumber(body.discount, existing?.discount ?? calculatedDiscount));
+  
   const couponDiscount = roundCurrency(toNumber(body.couponDiscount, existing?.couponDiscount ?? 0));
   const tax = roundCurrency(toNumber(body.tax, existing?.tax ?? 0));
   const totalAmount = roundCurrency(
@@ -329,6 +335,45 @@ export const createRazorpayOrder = async (request: FastifyRequest, reply: Fastif
 
     const amountInPaise = Math.round((plan.totalPrice || 0) * 100);
 
+    if (amountInPaise === 0) {
+      // Provision free subscription directly
+      const userId = (request.user as any)?.id || (request.body as any).userId;
+      if (!userId) {
+        return reply.status(400).send({ success: false, error: 'User ID is required for free plans' });
+      }
+
+      const body = {
+        userId,
+        planId,
+        paymentMethod: 'Free',
+        status: 'active',
+        price: 0,
+        totalAmount: 0,
+        duration: plan.duration,
+        durationValue: plan.durationValue
+      };
+
+      const payload = await buildSubscriptionPayload(body);
+      const subscription = await SubscriptionModel.create(payload);
+
+      const { UserModel } = await import('../models/User');
+      await UserModel.findByIdAndUpdate(userId, {
+        $set: {
+          subscriptionPlan: payload.plan,
+          subscriptionStatus: payload.status,
+          subscriptionExpiry: payload.endDate,
+          subscriptionPlanId: payload.planId
+        }
+      });
+
+      return reply.send({
+        success: true,
+        isFree: true,
+        message: 'Free plan activated successfully',
+        subscriptionId: subscription._id
+      });
+    }
+
     const order = await instance.orders.create({
       amount: amountInPaise,
       currency: settings.currencyCode || 'INR',
@@ -338,6 +383,7 @@ export const createRazorpayOrder = async (request: FastifyRequest, reply: Fastif
     return reply.send({
       success: true,
       order,
+      keyId: settings.razorpayKeyId,
     });
   } catch (error: any) {
     console.error('Razorpay Create Order Error:', error);
@@ -352,8 +398,11 @@ export const verifyRazorpayPayment = async (request: FastifyRequest, reply: Fast
       razorpay_payment_id, 
       razorpay_signature, 
       planId,
-      userId 
+      userId: bodyUserId
     } = request.body as any;
+
+    // Use JWT user if available (user-facing route), otherwise fall back to body userId (admin route)
+    const userId = (request.user as any)?.id || bodyUserId;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !planId || !userId) {
       return reply.status(400).send({ success: false, error: 'Missing payment details or plan details' });
